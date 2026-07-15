@@ -3,6 +3,15 @@ from app.models.validation import (
     ValidationFinding,
     ValidationSeverity,
 )
+from app.models.simulation import (
+    ExecutionTraceEntry,
+    MockApiOutcome,
+    SimulationRequest,
+    SimulationResult,
+    SimulationStatus,
+    TranscriptEntry,
+    TranscriptRole,
+)
 from app.models.workflow import (
     ApiCallConfig,
     AskQuestionConfig,
@@ -38,4 +47,11 @@ __all__ = [
     "ValidationSeverity",
     "ValidationFinding",
     "FlowValidationResult",
+    "SimulationStatus",
+    "TranscriptRole",
+    "TranscriptEntry",
+    "ExecutionTraceEntry",
+    "MockApiOutcome",
+    "SimulationRequest",
+    "SimulationResult",
 ]

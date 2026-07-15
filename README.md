@@ -170,6 +170,16 @@ Validation findings use stable machine-readable codes and one of three severitie
 
 The validator checks transition targets, reachability, terminal paths, fallback branches, suspicious cycles, duplicate transitions, API success and failure paths, question variables, and empty messages.
 
+### Mock Simulation
+
+FlowPilot can run a deterministic mock execution of a validated workflow without calling external services.
+
+The simulator supports trigger, message, question, condition, API call, team assignment, wait, and end nodes. User answers are supplied by ask-question node ID, and mock API outcomes are supplied by API-call node ID.
+
+If a required user answer is missing, execution returns `waiting_for_input` instead of failing. API calls require explicit mock outcomes and never make real network requests.
+
+Execution uses a maximum step count to stop retry loops safely. In this MVP, user inputs are reused by node ID, so repeated fallback loops with the same unexpected answer will eventually return `step_limit_exceeded`.
+
 ---
 
 ## Agentic Development
@@ -227,6 +237,7 @@ flowpilot/
 ```text
 POST /api/flows/generate
 POST /api/flows/validate
+POST /api/flows/simulate
 POST /api/flows/{flow_id}/validate
 GET  /api/flows/{flow_id}/explain
 POST /api/flows/{flow_id}/simulate

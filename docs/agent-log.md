@@ -191,3 +191,60 @@ Implement deterministic graph and business-rule validation for `AutomationFlow`,
 ### Tests Executed
 
 - `.venv/bin/python -m pytest` - passed with 31 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
+
+## 2026-07-15 - Mock Workflow Simulation Engine
+
+### Task
+
+Implement deterministic mock execution for `AutomationFlow` using supplied user inputs and mock API outcomes, expose it through `POST /api/flows/simulate`, add runnable examples, and document the behavior.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected the current workflow models, validation models, public exports, validation service, flows route, lead-routing example, and tests.
+- Added typed simulation models for status, transcript entries, trace entries, mock API outcomes, requests, and results.
+- Added `FlowSimulationService` with pre-execution validation, bounded node-by-node execution, deterministic transition selection, transcript recording, and trace recording.
+- Added the `POST /api/flows/simulate` endpoint without persistence or external calls.
+- Added buyer, seller, and unexpected-answer simulation request examples.
+- Added comprehensive unit tests and FastAPI integration tests.
+- Updated public model and service exports.
+- Updated README documentation for mock simulation behavior.
+
+### Execution Model Proposed
+
+- Run `FlowValidationService` directly before simulation and stop before execution if error findings exist.
+- Start at `flow.trigger_node_id`.
+- Execute one node per step, append trace entries, and stop on completion, waiting for input, failure, or step-limit exhaustion.
+- Store runtime variables in a local copy seeded from `initial_variables`.
+- Record bot/user transcript entries for message and question nodes.
+- Store mock API results under `variables["api_results"][node_id]`.
+- Use the first deterministic normal transition for non-branching nodes.
+
+### Unsafe Approaches Explicitly Rejected
+
+- No `eval` or `exec`.
+- No real HTTP or external API calls.
+- No general expression engine.
+- No persistence or repository writes.
+- No LLM generation, explanation generation, or natural-language generation.
+- No frontend code.
+
+### Assumptions
+
+- User inputs are keyed by ask-question node ID and reused on each visit in this MVP.
+- Reused unexpected answers may intentionally hit the maximum step limit in fallback loops.
+- API success and failure branch selection is conservative and based on labels, simple conditions, and fallback flags.
+- Missing user input is a waiting state, not a failure.
+- Warnings and info findings from validation do not block simulation.
+
+### Manual Review Checklist
+
+- [ ] Confirm transcript and trace detail fields are useful for the demo.
+- [ ] Confirm repeated user input reuse is acceptable for the MVP.
+- [ ] Review API branch label heuristics for expected authoring language.
+- [ ] Confirm example simulation request files are clear enough for Swagger/API demos.
+- [ ] Confirm the upstream FastAPI/Starlette test-client deprecation warning does not need immediate dependency pinning.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest` - passed with 66 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
