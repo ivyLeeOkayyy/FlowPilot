@@ -8,13 +8,14 @@ import { SimulationPanel } from "./components/SimulationPanel";
 import { ValidationCard } from "./components/ValidationCard";
 import { WorkflowSummary } from "./components/WorkflowSummary";
 import { WorkflowTimeline } from "./components/WorkflowTimeline";
-import type { GenerationResponse, SimulationResult } from "./types/flow";
+import type { GenerationMode, GenerationResponse, SimulationResult } from "./types/flow";
 
 const DEFAULT_PROMPT =
   "When a new contact messages us, ask whether they are a buyer or seller. Route buyers to the sales team and send sellers a help article.";
 
 export default function App() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("mock");
   const [generation, setGeneration] = useState<GenerationResponse | null>(null);
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
   const [simulationInputs, setSimulationInputs] = useState<Record<string, string>>({});
@@ -38,7 +39,7 @@ export default function App() {
     setError(null);
     setSimulation(null);
     try {
-      const response = await generateWorkflow(prompt);
+      const response = await generateWorkflow(prompt, generationMode);
       setGeneration(response);
       const nextInputs: Record<string, string> = {};
       response.flow?.nodes
@@ -82,8 +83,10 @@ export default function App() {
         <section className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
           <PromptPanel
             prompt={prompt}
+            generationMode={generationMode}
             isLoading={isGenerating}
             onPromptChange={setPrompt}
+            onGenerationModeChange={setGenerationMode}
             onGenerate={handleGenerate}
           />
 

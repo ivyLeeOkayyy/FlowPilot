@@ -1,3 +1,5 @@
+import type { GenerationMode } from "../types/flow";
+
 const EXAMPLES = [
   {
     label: "Lead Routing",
@@ -18,15 +20,19 @@ const EXAMPLES = [
 
 interface PromptPanelProps {
   prompt: string;
+  generationMode: GenerationMode;
   isLoading: boolean;
   onPromptChange: (value: string) => void;
+  onGenerationModeChange: (value: GenerationMode) => void;
   onGenerate: () => void;
 }
 
 export function PromptPanel({
   prompt,
+  generationMode,
   isLoading,
   onPromptChange,
+  onGenerationModeChange,
   onGenerate
 }: PromptPanelProps) {
   return (
@@ -64,6 +70,29 @@ export function PromptPanel({
         placeholder="Example: Route buyer and seller leads from a new contact message..."
       />
 
+      <div className="mt-4 rounded-2xl bg-[#E8F0F7] p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#6B8EAE]">
+          Generation mode
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ModeButton
+            label="Mock Generation"
+            isSelected={generationMode === "mock"}
+            onClick={() => onGenerationModeChange("mock")}
+          />
+          <ModeButton
+            label="DeepSeek Generation"
+            isSelected={generationMode === "llm"}
+            onClick={() => onGenerationModeChange("llm")}
+          />
+        </div>
+        {generationMode === "llm" && (
+          <p className="mt-3 text-sm text-[#587891]">
+            Requires local DeepSeek API configuration.
+          </p>
+        )}
+      </div>
+
       <div className="mt-4 flex flex-wrap gap-2">
         {EXAMPLES.map((example) => (
           <button
@@ -76,5 +105,29 @@ export function PromptPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function ModeButton({
+  label,
+  isSelected,
+  onClick
+}: {
+  label: string;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+        isSelected
+          ? "bg-[#6B8EAE] text-[#F8FBFD] shadow-sm"
+          : "bg-[#FAFCFE] text-[#3F5F7A] hover:bg-[#DCE8F2]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

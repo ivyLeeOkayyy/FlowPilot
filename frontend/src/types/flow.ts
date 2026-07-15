@@ -14,6 +14,7 @@ export type GenerationStatus =
   | "generated_with_warnings"
   | "clarification_required"
   | "failed";
+export type GenerationMode = "mock" | "llm";
 export type SimulationStatus =
   | "completed"
   | "waiting_for_input"

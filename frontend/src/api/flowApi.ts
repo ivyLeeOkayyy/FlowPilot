@@ -1,4 +1,9 @@
-import type { GenerationResponse, SimulationRequest, SimulationResult } from "../types/flow";
+import type {
+  GenerationMode,
+  GenerationResponse,
+  SimulationRequest,
+  SimulationResult
+} from "../types/flow";
 
 const BASE_URL = "http://localhost:8000";
 
@@ -27,10 +32,13 @@ async function requestJson<T>(path: string, payload: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function generateWorkflow(prompt: string): Promise<GenerationResponse> {
+export function generateWorkflow(
+  prompt: string,
+  mode: GenerationMode
+): Promise<GenerationResponse> {
   return requestJson<GenerationResponse>("/api/flows/generate", {
     prompt,
-    mode: "mock",
+    mode,
     include_explanation: true
   });
 }
