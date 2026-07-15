@@ -1,0 +1,5 @@
+{
+  "prompt": "When a customer asks about an order, ask for the order ID, call the order status API, send the result on success, and route the conversation to support if the API fails.",
+  "mode": "mock",
+  "include_explanation": true
+}

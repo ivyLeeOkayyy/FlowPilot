@@ -188,6 +188,16 @@ The explanation service walks reachable nodes in breadth-first order from the tr
 
 API URLs are described defensively so query parameter values are not exposed. Explanation output is intended for review and demo clarity; it does not generate or modify workflows.
 
+### Generation
+
+FlowPilot can generate a workflow artifact from a natural-language prompt in deterministic `mock` mode.
+
+The built-in mock generator supports three demo scenarios: lead routing, support triage, and order status lookup. If a prompt is too vague, it returns a clarification question instead of inventing a broad automation.
+
+Generated flows are parsed as `AutomationFlow`, validated with the deterministic validator, and optionally explained before they are returned. A generated flow is never treated as executable unless validation succeeds.
+
+Optional `llm` mode is configuration-gated through OpenAI-compatible environment variables. Mock mode remains the required runnable path and does not need network access or API keys.
+
 ---
 
 ## Agentic Development

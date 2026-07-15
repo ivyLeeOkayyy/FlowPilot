@@ -1,0 +1,5 @@
+{
+  "prompt": "When a new contact messages us, ask whether they are a buyer or seller. Route buyers to the sales team and send sellers a help article.",
+  "mode": "mock",
+  "include_explanation": true
+}

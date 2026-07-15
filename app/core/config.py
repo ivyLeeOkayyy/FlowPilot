@@ -11,6 +11,10 @@ class Settings(BaseModel):
         "FlowPilot is a lightweight AI-assisted automation builder created as a "
         "hackathon demo."
     )
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
+    llm_model: str | None = None
+    llm_timeout_seconds: int = 15
 
 
 settings = Settings()

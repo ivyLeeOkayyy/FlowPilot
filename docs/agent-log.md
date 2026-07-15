@@ -303,3 +303,62 @@ Implement deterministic, human-readable explanation for existing `AutomationFlow
 ### Tests Executed
 
 - `.venv/bin/python -m pytest` - passed with 93 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
+
+## 2026-07-15 - Natural-Language Workflow Generation
+
+### Task
+
+Implement focused natural-language workflow generation for the hackathon demo, with deterministic mock templates, structured failures, validation, and optional explanation.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected the current models, routes, services, configuration, examples, tests, and git status.
+- Added typed generation request and response models.
+- Added `FlowGenerationService` with deterministic prompt classification, mock template factories, validation, optional explanation, and structured failure responses.
+- Added `POST /api/flows/generate`.
+- Added environment placeholders for optional OpenAI-compatible LLM configuration.
+- Added request and response examples generated from the real service.
+- Added unit and integration tests for mock generation, clarification, validation boundaries, explanation inclusion, LLM disabled behavior, uniqueness, and API behavior.
+- Updated public exports and README documentation.
+
+### Template-Generation Design
+
+- Keyword-based classifier selects one of three fresh template factories: lead routing, support triage, or order status.
+- Each generated flow receives a unique ID and fresh timezone-aware `created_at`.
+- Template metadata includes `source_prompt`, `generator="mock"`, and assumptions documenting the template interpretation.
+- Templates are built as fresh dictionaries and parsed through `AutomationFlow.model_validate`.
+
+### Optional Provider Design
+
+- `llm` mode is configuration-gated by `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`.
+- This hackathon build returns `LLM_NOT_CONFIGURED` for LLM mode rather than adding provider complexity or network behavior.
+- No API key is logged or returned in responses.
+
+### Validation Boundary
+
+- Raw generated dictionaries are never returned as executable flows.
+- Every generated template is parsed as `AutomationFlow`.
+- Every parsed flow is passed through `FlowValidationService`.
+- Validation errors return `GENERATED_FLOW_INVALID`; warnings and info return `generated_with_warnings`.
+- Explanation is generated only after parsing and validation, and can be disabled per request.
+
+### Unsafe Approaches Rejected
+
+- No database, background jobs, agent framework, RAG, embeddings, or prompt history.
+- No mock-mode network access or API keys.
+- No automatic execution of generated flows.
+- No weakening of existing validation, simulation, explanation, or health behavior.
+- No hard-coded secrets.
+
+### Manual Review Checklist
+
+- [ ] Confirm keyword classification is intuitive enough for demo prompts.
+- [ ] Review generated support triage and order status flows for product/demo wording.
+- [ ] Decide whether a real LLM adapter should be added later and which HTTP dependency to use.
+- [ ] Confirm response examples are acceptable despite unique IDs and timestamps.
+- [ ] Confirm the upstream FastAPI/Starlette test-client deprecation warning does not need immediate dependency pinning.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest` - passed with 117 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.

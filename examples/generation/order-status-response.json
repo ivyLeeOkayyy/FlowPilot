@@ -1,0 +1,268 @@
+{
+  "status": "generated_with_warnings",
+  "flow": {
+    "id": "order-status-ba64f9a8",
+    "name": "Order status",
+    "description": "When a customer asks about an order, ask for the order ID, call the order status API, send the result on success, and route the conversation to support if the API fails.",
+    "version": 1,
+    "trigger_node_id": "order-inquiry",
+    "nodes": [
+      {
+        "id": "order-inquiry",
+        "type": "trigger",
+        "name": "Order inquiry",
+        "config": {
+          "event": "order_status_inquiry"
+        },
+        "transitions": [
+          {
+            "target_node_id": "ask-order-id",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "ask-order-id",
+        "type": "ask_question",
+        "name": "Ask for order ID",
+        "config": {
+          "question": "What is your order ID?",
+          "variable_name": "order_id",
+          "expected_answers": []
+        },
+        "transitions": [
+          {
+            "target_node_id": "check-order-status",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "check-order-status",
+        "type": "api_call",
+        "name": "Check order status",
+        "config": {
+          "method": "GET",
+          "url": "https://api.example.test/orders/status?order_id={order_id}",
+          "timeout_seconds": 10,
+          "mock_success_response": {
+            "status": "shipped",
+            "eta": "tomorrow"
+          },
+          "mock_failure_status": 500
+        },
+        "transitions": [
+          {
+            "target_node_id": "send-order-result",
+            "label": "success",
+            "condition": "status < 400",
+            "is_fallback": false
+          },
+          {
+            "target_node_id": "route-api-failure",
+            "label": "failure",
+            "condition": "status >= 400",
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "send-order-result",
+        "type": "send_message",
+        "name": "Send order result",
+        "config": {
+          "message": "Your order status is available in the mock API response."
+        },
+        "transitions": [
+          {
+            "target_node_id": "order-status-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "route-api-failure",
+        "type": "assign_to_team",
+        "name": "Route API failure to support",
+        "config": {
+          "team_name": "support"
+        },
+        "transitions": [
+          {
+            "target_node_id": "support-routing-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "order-status-complete",
+        "type": "end",
+        "name": "Order status sent",
+        "config": {
+          "outcome": "order_status_sent"
+        },
+        "transitions": []
+      },
+      {
+        "id": "support-routing-complete",
+        "type": "end",
+        "name": "Support routing complete",
+        "config": {
+          "outcome": "order_status_failure_routed_to_support"
+        },
+        "transitions": []
+      }
+    ],
+    "metadata": {
+      "source_prompt": "When a customer asks about an order, ask for the order ID, call the order status API, send the result on success, and route the conversation to support if the API fails.",
+      "generator": "mock",
+      "model_name": null,
+      "created_at": "2026-07-15T08:13:11.738087Z",
+      "assumptions": [
+        "Template selected because the prompt mentions order status.",
+        "The API call is mocked and never performs a real external request.",
+        "API failure routes the conversation to support."
+      ],
+      "warnings": []
+    }
+  },
+  "validation": {
+    "is_valid": true,
+    "findings": [
+      {
+        "severity": "info",
+        "message": "Ask-question node 'ask-order-id' has no expected answers; free-text input is allowed but harder to route.",
+        "node_id": "ask-order-id",
+        "code": "QUESTION_WITHOUT_EXPECTED_ANSWERS"
+      },
+      {
+        "severity": "info",
+        "message": "Question variable 'order_id' from node 'ask-order-id' is not used by any condition node.",
+        "node_id": "ask-order-id",
+        "code": "UNUSED_VARIABLE"
+      }
+    ]
+  },
+  "explanation": {
+    "flow_id": "order-status-ba64f9a8",
+    "flow_name": "Order status",
+    "summary": "The workflow starts when an order status inquiry. It asks: \"What is your order ID?\" It can route work to the support team. It can send messages such as \"Your order status is available in the mock API response.\" It can complete with order status sent and order status failure routed to support.",
+    "trigger_description": "The workflow starts when an order status inquiry.",
+    "steps": [
+      {
+        "order": 1,
+        "node_id": "order-inquiry",
+        "node_type": "trigger",
+        "title": "Trigger: Order inquiry",
+        "description": "The workflow starts when an order status inquiry.",
+        "next_steps": [
+          "Continue to Ask for order ID."
+        ]
+      },
+      {
+        "order": 2,
+        "node_id": "ask-order-id",
+        "node_type": "ask_question",
+        "title": "Ask question: Ask for order ID",
+        "description": "The bot asks \"What is your order ID?\" and stores the free-text answer in `order_id`.",
+        "next_steps": [
+          "Continue to Check order status."
+        ]
+      },
+      {
+        "order": 3,
+        "node_id": "check-order-status",
+        "node_type": "api_call",
+        "title": "API call: Check order status",
+        "description": "The workflow prepares a mocked GET request to https://api.example.test/orders/status?order_id=<redacted> with a 10-second timeout. The MVP uses supplied mock outcomes and does not perform a real network request. Recognized branches: success to send-order-result; failure to route-api-failure.",
+        "next_steps": [
+          "If status < 400, continue to Send order result.",
+          "If status >= 400, continue to Route API failure to support."
+        ]
+      },
+      {
+        "order": 4,
+        "node_id": "send-order-result",
+        "node_type": "send_message",
+        "title": "Send message: Send order result",
+        "description": "The bot sends this message: \"Your order status is available in the mock API response.\"",
+        "next_steps": [
+          "Continue to Order status sent."
+        ]
+      },
+      {
+        "order": 5,
+        "node_id": "route-api-failure",
+        "node_type": "assign_to_team",
+        "title": "Assign to team: Route API failure to support",
+        "description": "The workflow assigns the conversation to the support team.",
+        "next_steps": [
+          "Continue to Support routing complete."
+        ]
+      },
+      {
+        "order": 6,
+        "node_id": "order-status-complete",
+        "node_type": "end",
+        "title": "End: Order status sent",
+        "description": "The workflow completes with outcome: order status sent.",
+        "next_steps": []
+      },
+      {
+        "order": 7,
+        "node_id": "support-routing-complete",
+        "node_type": "end",
+        "title": "End: Support routing complete",
+        "description": "The workflow completes with outcome: order status failure routed to support.",
+        "next_steps": []
+      }
+    ],
+    "outcomes": [
+      "order status sent",
+      "order status failure routed to support"
+    ],
+    "assumptions": [
+      "Template selected because the prompt mentions order status.",
+      "The API call is mocked and never performs a real external request.",
+      "API failure routes the conversation to support."
+    ],
+    "risks": [
+      {
+        "code": "QUESTION_WITHOUT_EXPECTED_ANSWERS",
+        "severity": "info",
+        "node_id": "ask-order-id",
+        "summary": "Ask-question node 'ask-order-id' has no expected answers; free-text input is allowed but harder to route.",
+        "recommendation": null
+      },
+      {
+        "code": "UNUSED_VARIABLE",
+        "severity": "info",
+        "node_id": "ask-order-id",
+        "summary": "Question variable 'order_id' from node 'ask-order-id' is not used by any condition node.",
+        "recommendation": null
+      }
+    ],
+    "is_safe_to_simulate": true,
+    "notes": [
+      "API calls are simulated using supplied mock outcomes."
+    ]
+  },
+  "clarification_question": null,
+  "assumptions": [
+    "Template selected because the prompt mentions order status.",
+    "The API call is mocked and never performs a real external request.",
+    "API failure routes the conversation to support."
+  ],
+  "provider": "mock",
+  "model_name": null,
+  "error_code": null,
+  "error_message": null
+}

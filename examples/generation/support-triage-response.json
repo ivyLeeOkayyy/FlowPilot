@@ -1,0 +1,288 @@
+{
+  "status": "generated",
+  "flow": {
+    "id": "support-triage-43b85599",
+    "name": "Support triage",
+    "description": "When a customer asks for support, ask whether the issue is billing, account access, or something else. Send billing questions to finance, account access issues to support, and route other issues to a human agent.",
+    "version": 1,
+    "trigger_node_id": "support-message",
+    "nodes": [
+      {
+        "id": "support-message",
+        "type": "trigger",
+        "name": "Support message",
+        "config": {
+          "event": "support_message"
+        },
+        "transitions": [
+          {
+            "target_node_id": "ask-issue-type",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "ask-issue-type",
+        "type": "ask_question",
+        "name": "Ask issue type",
+        "config": {
+          "question": "Is this about billing, account access, or something else?",
+          "variable_name": "issue_type",
+          "expected_answers": [
+            "billing",
+            "account access",
+            "something else"
+          ]
+        },
+        "transitions": [
+          {
+            "target_node_id": "route-issue-type",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "route-issue-type",
+        "type": "condition",
+        "name": "Route issue type",
+        "config": {
+          "variable_name": "issue_type"
+        },
+        "transitions": [
+          {
+            "target_node_id": "route-billing",
+            "label": "Billing",
+            "condition": "issue_type == 'billing'",
+            "is_fallback": false
+          },
+          {
+            "target_node_id": "route-account-access",
+            "label": "Account access",
+            "condition": "issue_type == 'account access'",
+            "is_fallback": false
+          },
+          {
+            "target_node_id": "route-human-support",
+            "label": "Other or unexpected issue",
+            "condition": null,
+            "is_fallback": true
+          }
+        ]
+      },
+      {
+        "id": "route-billing",
+        "type": "assign_to_team",
+        "name": "Route billing to finance",
+        "config": {
+          "team_name": "finance"
+        },
+        "transitions": [
+          {
+            "target_node_id": "billing-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "route-account-access",
+        "type": "assign_to_team",
+        "name": "Route account access to support",
+        "config": {
+          "team_name": "support"
+        },
+        "transitions": [
+          {
+            "target_node_id": "account-access-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "route-human-support",
+        "type": "assign_to_team",
+        "name": "Route other issue to human support",
+        "config": {
+          "team_name": "human support"
+        },
+        "transitions": [
+          {
+            "target_node_id": "human-support-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "billing-complete",
+        "type": "end",
+        "name": "Billing routed",
+        "config": {
+          "outcome": "billing_routed_to_finance"
+        },
+        "transitions": []
+      },
+      {
+        "id": "account-access-complete",
+        "type": "end",
+        "name": "Account access routed",
+        "config": {
+          "outcome": "account_access_routed_to_support"
+        },
+        "transitions": []
+      },
+      {
+        "id": "human-support-complete",
+        "type": "end",
+        "name": "Human support routed",
+        "config": {
+          "outcome": "other_issue_routed_to_human_support"
+        },
+        "transitions": []
+      }
+    ],
+    "metadata": {
+      "source_prompt": "When a customer asks for support, ask whether the issue is billing, account access, or something else. Send billing questions to finance, account access issues to support, and route other issues to a human agent.",
+      "generator": "mock",
+      "model_name": null,
+      "created_at": "2026-07-15T08:13:11.737773Z",
+      "assumptions": [
+        "Template selected because the prompt mentions support triage.",
+        "Billing is routed to finance and account access is routed to support.",
+        "Other or unexpected issues are routed to a human support team."
+      ],
+      "warnings": []
+    }
+  },
+  "validation": {
+    "is_valid": true,
+    "findings": []
+  },
+  "explanation": {
+    "flow_id": "support-triage-43b85599",
+    "flow_name": "Support triage",
+    "summary": "The workflow starts when support message occurs. It asks: \"Is this about billing, account access, or something else?\" It can route work to the finance, support, and human support team. It can complete with billing routed to finance, account access routed to support, and other issue routed to human support.",
+    "trigger_description": "The workflow starts when support message occurs.",
+    "steps": [
+      {
+        "order": 1,
+        "node_id": "support-message",
+        "node_type": "trigger",
+        "title": "Trigger: Support message",
+        "description": "The workflow starts when support message occurs.",
+        "next_steps": [
+          "Continue to Ask issue type."
+        ]
+      },
+      {
+        "order": 2,
+        "node_id": "ask-issue-type",
+        "node_type": "ask_question",
+        "title": "Ask question: Ask issue type",
+        "description": "The bot asks \"Is this about billing, account access, or something else?\" and stores the answer in `issue_type`. Expected answers are billing, account access, and something else.",
+        "next_steps": [
+          "Continue to Route issue type."
+        ]
+      },
+      {
+        "order": 3,
+        "node_id": "route-issue-type",
+        "node_type": "condition",
+        "title": "Condition: Route issue type",
+        "description": "The workflow evaluates `issue_type` and branches: if `issue_type == 'billing'` it goes to route-billing; if `issue_type == 'account access'` it goes to route-account-access; otherwise it follows the fallback to route-human-support.",
+        "next_steps": [
+          "If issue_type == 'billing', continue to Route billing to finance.",
+          "If issue_type == 'account access', continue to Route account access to support.",
+          "Otherwise, continue to Route other issue to human support."
+        ]
+      },
+      {
+        "order": 4,
+        "node_id": "route-billing",
+        "node_type": "assign_to_team",
+        "title": "Assign to team: Route billing to finance",
+        "description": "The workflow assigns the conversation to the finance team.",
+        "next_steps": [
+          "Continue to Billing routed."
+        ]
+      },
+      {
+        "order": 5,
+        "node_id": "route-account-access",
+        "node_type": "assign_to_team",
+        "title": "Assign to team: Route account access to support",
+        "description": "The workflow assigns the conversation to the support team.",
+        "next_steps": [
+          "Continue to Account access routed."
+        ]
+      },
+      {
+        "order": 6,
+        "node_id": "route-human-support",
+        "node_type": "assign_to_team",
+        "title": "Assign to team: Route other issue to human support",
+        "description": "The workflow assigns the conversation to the human support team.",
+        "next_steps": [
+          "Continue to Human support routed."
+        ]
+      },
+      {
+        "order": 7,
+        "node_id": "billing-complete",
+        "node_type": "end",
+        "title": "End: Billing routed",
+        "description": "The workflow completes with outcome: billing routed to finance.",
+        "next_steps": []
+      },
+      {
+        "order": 8,
+        "node_id": "account-access-complete",
+        "node_type": "end",
+        "title": "End: Account access routed",
+        "description": "The workflow completes with outcome: account access routed to support.",
+        "next_steps": []
+      },
+      {
+        "order": 9,
+        "node_id": "human-support-complete",
+        "node_type": "end",
+        "title": "End: Human support routed",
+        "description": "The workflow completes with outcome: other issue routed to human support.",
+        "next_steps": []
+      }
+    ],
+    "outcomes": [
+      "billing routed to finance",
+      "account access routed to support",
+      "other issue routed to human support"
+    ],
+    "assumptions": [
+      "Template selected because the prompt mentions support triage.",
+      "Billing is routed to finance and account access is routed to support.",
+      "Other or unexpected issues are routed to a human support team."
+    ],
+    "risks": [],
+    "is_safe_to_simulate": true,
+    "notes": [
+      "Conditions support only a constrained syntax during simulation."
+    ]
+  },
+  "clarification_question": null,
+  "assumptions": [
+    "Template selected because the prompt mentions support triage.",
+    "Billing is routed to finance and account access is routed to support.",
+    "Other or unexpected issues are routed to a human support team."
+  ],
+  "provider": "mock",
+  "model_name": null,
+  "error_code": null,
+  "error_message": null
+}

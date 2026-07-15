@@ -1,0 +1,285 @@
+{
+  "status": "generated_with_warnings",
+  "flow": {
+    "id": "lead-routing-3276c403",
+    "name": "Lead routing",
+    "description": "When a new contact messages us, ask whether they are a buyer or seller. Route buyers to the sales team and send sellers a help article.",
+    "version": 1,
+    "trigger_node_id": "new-contact",
+    "nodes": [
+      {
+        "id": "new-contact",
+        "type": "trigger",
+        "name": "New contact message",
+        "config": {
+          "event": "new_contact_message"
+        },
+        "transitions": [
+          {
+            "target_node_id": "ask-contact-type",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "ask-contact-type",
+        "type": "ask_question",
+        "name": "Ask lead type",
+        "config": {
+          "question": "Are you a buyer or a seller?",
+          "variable_name": "contact_type",
+          "expected_answers": [
+            "buyer",
+            "seller"
+          ]
+        },
+        "transitions": [
+          {
+            "target_node_id": "route-contact-type",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "route-contact-type",
+        "type": "condition",
+        "name": "Route lead type",
+        "config": {
+          "variable_name": "contact_type"
+        },
+        "transitions": [
+          {
+            "target_node_id": "route-buyer",
+            "label": "Buyer",
+            "condition": "contact_type == 'buyer'",
+            "is_fallback": false
+          },
+          {
+            "target_node_id": "seller-help",
+            "label": "Seller",
+            "condition": "contact_type == 'seller'",
+            "is_fallback": false
+          },
+          {
+            "target_node_id": "clarify-contact-type",
+            "label": "Unexpected answer",
+            "condition": null,
+            "is_fallback": true
+          }
+        ]
+      },
+      {
+        "id": "route-buyer",
+        "type": "assign_to_team",
+        "name": "Route buyer to sales",
+        "config": {
+          "team_name": "sales"
+        },
+        "transitions": [
+          {
+            "target_node_id": "buyer-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "seller-help",
+        "type": "send_message",
+        "name": "Send seller help article",
+        "config": {
+          "message": "Here is a help article for sellers."
+        },
+        "transitions": [
+          {
+            "target_node_id": "seller-complete",
+            "label": null,
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "clarify-contact-type",
+        "type": "send_message",
+        "name": "Clarify unexpected answer",
+        "config": {
+          "message": "I can help if you reply with buyer or seller."
+        },
+        "transitions": [
+          {
+            "target_node_id": "ask-contact-type",
+            "label": "Ask again",
+            "condition": null,
+            "is_fallback": false
+          }
+        ]
+      },
+      {
+        "id": "buyer-complete",
+        "type": "end",
+        "name": "Buyer routing complete",
+        "config": {
+          "outcome": "buyer_routed_to_sales"
+        },
+        "transitions": []
+      },
+      {
+        "id": "seller-complete",
+        "type": "end",
+        "name": "Seller help complete",
+        "config": {
+          "outcome": "seller_help_article_sent"
+        },
+        "transitions": []
+      }
+    ],
+    "metadata": {
+      "source_prompt": "When a new contact messages us, ask whether they are a buyer or seller. Route buyers to the sales team and send sellers a help article.",
+      "generator": "mock",
+      "model_name": null,
+      "created_at": "2026-07-15T08:13:11.737112Z",
+      "assumptions": [
+        "Template selected because the prompt mentions lead/contact routing.",
+        "Buyer and seller are treated as the expected lead categories.",
+        "Unexpected answers are clarified and asked again."
+      ],
+      "warnings": []
+    }
+  },
+  "validation": {
+    "is_valid": true,
+    "findings": [
+      {
+        "severity": "warning",
+        "message": "Cycle detected: ask-contact-type -> route-contact-type -> clarify-contact-type -> ask-contact-type.",
+        "node_id": "ask-contact-type",
+        "code": "SUSPICIOUS_CYCLE"
+      }
+    ]
+  },
+  "explanation": {
+    "flow_id": "lead-routing-3276c403",
+    "flow_name": "Lead routing",
+    "summary": "The workflow starts when a new contact sends a message. It asks: \"Are you a buyer or a seller?\" It can route work to the sales team. It can send messages such as \"Here is a help article for sellers.\" It can complete with buyer routed to sales and seller help article sent.",
+    "trigger_description": "The workflow starts when a new contact sends a message.",
+    "steps": [
+      {
+        "order": 1,
+        "node_id": "new-contact",
+        "node_type": "trigger",
+        "title": "Trigger: New contact message",
+        "description": "The workflow starts when a new contact sends a message.",
+        "next_steps": [
+          "Continue to Ask lead type."
+        ]
+      },
+      {
+        "order": 2,
+        "node_id": "ask-contact-type",
+        "node_type": "ask_question",
+        "title": "Ask question: Ask lead type",
+        "description": "The bot asks \"Are you a buyer or a seller?\" and stores the answer in `contact_type`. Expected answers are buyer and seller.",
+        "next_steps": [
+          "Continue to Route lead type."
+        ]
+      },
+      {
+        "order": 3,
+        "node_id": "route-contact-type",
+        "node_type": "condition",
+        "title": "Condition: Route lead type",
+        "description": "The workflow evaluates `contact_type` and branches: if `contact_type == 'buyer'` it goes to route-buyer; if `contact_type == 'seller'` it goes to seller-help; otherwise it follows the fallback to clarify-contact-type.",
+        "next_steps": [
+          "If contact_type == 'buyer', continue to Route buyer to sales.",
+          "If contact_type == 'seller', continue to Send seller help article.",
+          "Otherwise, continue to Clarify unexpected answer."
+        ]
+      },
+      {
+        "order": 4,
+        "node_id": "route-buyer",
+        "node_type": "assign_to_team",
+        "title": "Assign to team: Route buyer to sales",
+        "description": "The workflow assigns the conversation to the sales team.",
+        "next_steps": [
+          "Continue to Buyer routing complete."
+        ]
+      },
+      {
+        "order": 5,
+        "node_id": "seller-help",
+        "node_type": "send_message",
+        "title": "Send message: Send seller help article",
+        "description": "The bot sends this message: \"Here is a help article for sellers.\"",
+        "next_steps": [
+          "Continue to Seller help complete."
+        ]
+      },
+      {
+        "order": 6,
+        "node_id": "clarify-contact-type",
+        "node_type": "send_message",
+        "title": "Send message: Clarify unexpected answer",
+        "description": "The bot sends this message: \"I can help if you reply with buyer or seller.\"",
+        "next_steps": [
+          "On Ask again, continue to Ask lead type."
+        ]
+      },
+      {
+        "order": 7,
+        "node_id": "buyer-complete",
+        "node_type": "end",
+        "title": "End: Buyer routing complete",
+        "description": "The workflow completes with outcome: buyer routed to sales.",
+        "next_steps": []
+      },
+      {
+        "order": 8,
+        "node_id": "seller-complete",
+        "node_type": "end",
+        "title": "End: Seller help complete",
+        "description": "The workflow completes with outcome: seller help article sent.",
+        "next_steps": []
+      }
+    ],
+    "outcomes": [
+      "buyer routed to sales",
+      "seller help article sent"
+    ],
+    "assumptions": [
+      "Template selected because the prompt mentions lead/contact routing.",
+      "Buyer and seller are treated as the expected lead categories.",
+      "Unexpected answers are clarified and asked again."
+    ],
+    "risks": [
+      {
+        "code": "SUSPICIOUS_CYCLE",
+        "severity": "warning",
+        "node_id": "ask-contact-type",
+        "summary": "Cycle detected: ask-contact-type -> route-contact-type -> clarify-contact-type -> ask-contact-type.",
+        "recommendation": null
+      }
+    ],
+    "is_safe_to_simulate": true,
+    "notes": [
+      "Conditions support only a constrained syntax during simulation.",
+      "Repeated question input is reused by node ID in the current simulator."
+    ]
+  },
+  "clarification_question": null,
+  "assumptions": [
+    "Template selected because the prompt mentions lead/contact routing.",
+    "Buyer and seller are treated as the expected lead categories.",
+    "Unexpected answers are clarified and asked again."
+  ],
+  "provider": "mock",
+  "model_name": null,
+  "error_code": null,
+  "error_message": null
+}

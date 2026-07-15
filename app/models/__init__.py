@@ -3,6 +3,12 @@ from app.models.explanation import (
     FlowStepExplanation,
     RiskExplanation,
 )
+from app.models.generation import (
+    GenerationMode,
+    GenerationRequest,
+    GenerationResponse,
+    GenerationStatus,
+)
 from app.models.validation import (
     FlowValidationResult,
     ValidationFinding,
@@ -62,4 +68,8 @@ __all__ = [
     "FlowStepExplanation",
     "RiskExplanation",
     "FlowExplanation",
+    "GenerationMode",
+    "GenerationRequest",
+    "GenerationStatus",
+    "GenerationResponse",
 ]

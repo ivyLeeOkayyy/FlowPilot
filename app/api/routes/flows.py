@@ -3,17 +3,29 @@ from fastapi import APIRouter
 from app.models import (
     AutomationFlow,
     FlowValidationResult,
+    GenerationRequest,
+    GenerationResponse,
     SimulationRequest,
     SimulationResult,
     FlowExplanation,
 )
 from app.services import (
     FlowExplanationService,
+    FlowGenerationService,
     FlowSimulationService,
     FlowValidationService,
 )
 
 router = APIRouter(prefix="/api/flows", tags=["flows"])
+
+
+@router.post(
+    "/generate",
+    response_model=GenerationResponse,
+    summary="Generate a workflow from a natural-language prompt",
+)
+def generate_flow(request: GenerationRequest) -> GenerationResponse:
+    return FlowGenerationService().generate(request)
 
 
 @router.post("/validate", response_model=FlowValidationResult)

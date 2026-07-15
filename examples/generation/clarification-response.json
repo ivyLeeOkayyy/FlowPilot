@@ -1,0 +1,12 @@
+{
+  "status": "clarification_required",
+  "flow": null,
+  "validation": null,
+  "explanation": null,
+  "clarification_question": "Should this workflow route leads, triage support requests, or check order status?",
+  "assumptions": [],
+  "provider": "mock",
+  "model_name": null,
+  "error_code": null,
+  "error_message": null
+}
