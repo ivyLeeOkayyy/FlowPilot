@@ -245,6 +245,12 @@ Run tests:
 pytest
 ```
 
+Run tests:
+
+```bash
+pytest
+```
+
 ---
 
 ## Trade-offs
