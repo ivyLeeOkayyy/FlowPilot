@@ -1,0 +1,108 @@
+{
+  "flow_id": "lead-routing",
+  "flow_name": "Lead routing",
+  "summary": "The workflow starts when a new contact sends a message. It asks: \"Are you a buyer or a seller?\" It can route work to the sales team. It can send messages such as \"Here is a help article for sellers.\" It can complete with buyer routed to sales and seller help article sent.",
+  "trigger_description": "The workflow starts when a new contact sends a message.",
+  "steps": [
+    {
+      "order": 1,
+      "node_id": "new-contact",
+      "node_type": "trigger",
+      "title": "Trigger: New contact message",
+      "description": "The workflow starts when a new contact sends a message.",
+      "next_steps": [
+        "Continue to Ask lead type."
+      ]
+    },
+    {
+      "order": 2,
+      "node_id": "ask-contact-type",
+      "node_type": "ask_question",
+      "title": "Ask question: Ask lead type",
+      "description": "The bot asks \"Are you a buyer or a seller?\" and stores the answer in `contact_type`. Expected answers are buyer and seller.",
+      "next_steps": [
+        "Continue to Route lead type."
+      ]
+    },
+    {
+      "order": 3,
+      "node_id": "route-contact-type",
+      "node_type": "condition",
+      "title": "Condition: Route lead type",
+      "description": "The workflow evaluates `contact_type` and branches: if `contact_type == 'buyer'` it goes to route-buyer; if `contact_type == 'seller'` it goes to seller-help; otherwise it follows the fallback to clarify-contact-type.",
+      "next_steps": [
+        "If contact_type == 'buyer', continue to Route buyer to sales.",
+        "If contact_type == 'seller', continue to Send seller help article.",
+        "Otherwise, continue to Clarify unexpected answer."
+      ]
+    },
+    {
+      "order": 4,
+      "node_id": "route-buyer",
+      "node_type": "assign_to_team",
+      "title": "Assign to team: Route buyer to sales",
+      "description": "The workflow assigns the conversation to the sales team.",
+      "next_steps": [
+        "Continue to Buyer routing complete."
+      ]
+    },
+    {
+      "order": 5,
+      "node_id": "seller-help",
+      "node_type": "send_message",
+      "title": "Send message: Send seller help article",
+      "description": "The bot sends this message: \"Here is a help article for sellers.\"",
+      "next_steps": [
+        "Continue to Seller help complete."
+      ]
+    },
+    {
+      "order": 6,
+      "node_id": "clarify-contact-type",
+      "node_type": "send_message",
+      "title": "Send message: Clarify unexpected answer",
+      "description": "The bot sends this message: \"I can help if you reply with buyer or seller.\"",
+      "next_steps": [
+        "On Ask again, continue to Ask lead type."
+      ]
+    },
+    {
+      "order": 7,
+      "node_id": "buyer-complete",
+      "node_type": "end",
+      "title": "End: Buyer routing complete",
+      "description": "The workflow completes with outcome: buyer routed to sales.",
+      "next_steps": []
+    },
+    {
+      "order": 8,
+      "node_id": "seller-complete",
+      "node_type": "end",
+      "title": "End: Seller help complete",
+      "description": "The workflow completes with outcome: seller help article sent.",
+      "next_steps": []
+    }
+  ],
+  "outcomes": [
+    "buyer routed to sales",
+    "seller help article sent"
+  ],
+  "assumptions": [
+    "Buyer and seller are the expected lead categories.",
+    "Unexpected answers should be clarified before routing."
+  ],
+  "risks": [
+    {
+      "code": "SUSPICIOUS_CYCLE",
+      "severity": "warning",
+      "node_id": "ask-contact-type",
+      "summary": "Cycle detected: ask-contact-type -> route-contact-type -> clarify-contact-type -> ask-contact-type.",
+      "recommendation": null
+    }
+  ],
+  "is_safe_to_simulate": true,
+  "notes": [
+    "Conditions support only a constrained syntax during simulation.",
+    "Repeated question input is reused by node ID in the current simulator."
+  ]
+}

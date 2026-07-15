@@ -180,6 +180,14 @@ If a required user answer is missing, execution returns `waiting_for_input` inst
 
 Execution uses a maximum step count to stop retry loops safely. In this MVP, user inputs are reused by node ID, so repeated fallback loops with the same unexpected answer will eventually return `step_limit_exceeded`.
 
+### Plain-English Explanation
+
+FlowPilot can generate deterministic plain-English explanations for existing workflow artifacts without using an LLM.
+
+The explanation service walks reachable nodes in breadth-first order from the trigger, describes each step, lists reachable completion outcomes, and includes validation risks with their severity and stable codes.
+
+API URLs are described defensively so query parameter values are not exposed. Explanation output is intended for review and demo clarity; it does not generate or modify workflows.
+
 ---
 
 ## Agentic Development
@@ -238,6 +246,7 @@ flowpilot/
 POST /api/flows/generate
 POST /api/flows/validate
 POST /api/flows/simulate
+POST /api/flows/explain
 POST /api/flows/{flow_id}/validate
 GET  /api/flows/{flow_id}/explain
 POST /api/flows/{flow_id}/simulate

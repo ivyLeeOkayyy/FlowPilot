@@ -1,3 +1,8 @@
+from app.models.explanation import (
+    FlowExplanation,
+    FlowStepExplanation,
+    RiskExplanation,
+)
 from app.models.validation import (
     FlowValidationResult,
     ValidationFinding,
@@ -54,4 +59,7 @@ __all__ = [
     "MockApiOutcome",
     "SimulationRequest",
     "SimulationResult",
+    "FlowStepExplanation",
+    "RiskExplanation",
+    "FlowExplanation",
 ]

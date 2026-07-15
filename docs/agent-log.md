@@ -248,3 +248,58 @@ Implement deterministic mock execution for `AutomationFlow` using supplied user 
 ### Tests Executed
 
 - `.venv/bin/python -m pytest` - passed with 66 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
+
+## 2026-07-15 - Plain-English Workflow Explanation Service
+
+### Task
+
+Implement deterministic, human-readable explanation for existing `AutomationFlow` artifacts and validation findings, expose it through `POST /api/flows/explain`, and generate an example explanation output.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected workflow, validation, simulation, routing, examples, tests, and current git status.
+- Added typed explanation models for step explanations, risk explanations, and full flow explanations.
+- Added `FlowExplanationService` with validation-risk mapping, reachable-node BFS ordering, node-specific explanation text, outcome collection, contextual MVP notes, and API URL query-value redaction.
+- Added the `POST /api/flows/explain` endpoint without persistence, LLM calls, external calls, or changes to health, validation, or simulation behavior.
+- Generated `examples/explanations/lead-routing-explanation.json` from the actual service output.
+- Added unit and integration tests for explanation behavior, redaction, risks, notes, ordering, and non-mutation.
+- Updated README documentation for plain-English explanation.
+
+### Explanation Structure Proposed
+
+- A concise flow summary.
+- A trigger description derived from `TriggerConfig.event`.
+- Reachable step explanations in deterministic breadth-first order.
+- Reachable end outcomes only.
+- Assumptions copied from flow metadata.
+- Validation findings mapped into risk explanations.
+- Contextual notes only when relevant node types or cycles are present.
+
+### Redaction and Safety Decisions
+
+- No LLM or external NLP dependency is used.
+- No real HTTP requests are made.
+- API URL query parameter values are replaced with `<redacted>` while retaining parameter names.
+- Dangling transition targets are described as missing nodes instead of crashing explanation.
+- Validation warning and info findings are preserved in risks.
+
+### Assumptions
+
+- Summary wording should be deterministic and accurate rather than literary.
+- Branch descriptions should reflect transition labels, conditions, and fallback flags without inventing hidden business semantics.
+- `ValidationFinding` does not currently expose a `suggestion` field, so risk recommendations are `null` unless that field is added later.
+- Only reachable nodes belong in normal step and outcome explanations; unreachable-node findings remain visible as risks.
+
+### Manual Review Checklist
+
+- [ ] Confirm summary wording is clear enough for the hackathon demo.
+- [ ] Review branch wording for condition and fallback transitions.
+- [ ] Confirm API URL redaction behavior is appropriate for future API-call examples.
+- [ ] Decide whether validation findings should grow an explicit recommendation/suggestion field.
+- [ ] Confirm the generated example explanation is useful for README or demo material.
+- [ ] Confirm the upstream FastAPI/Starlette test-client deprecation warning does not need immediate dependency pinning.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest` - passed with 93 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.

@@ -5,8 +5,13 @@ from app.models import (
     FlowValidationResult,
     SimulationRequest,
     SimulationResult,
+    FlowExplanation,
 )
-from app.services import FlowSimulationService, FlowValidationService
+from app.services import (
+    FlowExplanationService,
+    FlowSimulationService,
+    FlowValidationService,
+)
 
 router = APIRouter(prefix="/api/flows", tags=["flows"])
 
@@ -19,3 +24,8 @@ def validate_flow(flow: AutomationFlow) -> FlowValidationResult:
 @router.post("/simulate", response_model=SimulationResult)
 def simulate_flow(request: SimulationRequest) -> SimulationResult:
     return FlowSimulationService().simulate(request)
+
+
+@router.post("/explain", response_model=FlowExplanation)
+def explain_flow(flow: AutomationFlow) -> FlowExplanation:
+    return FlowExplanationService().explain(flow)
