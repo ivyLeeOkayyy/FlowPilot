@@ -1,5 +1,6 @@
 import logging
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -10,7 +11,13 @@ from app.models import (
     GenerationRequest,
     GenerationStatus,
 )
+from app.core.config import llm_config_diagnostics
 from app.services.generation_service import FlowGenerationService
+from app.services.providers import (
+    DeepSeekProvider,
+    GenerationProviderError,
+    MockWorkflowGenerationProvider,
+)
 
 
 def generate(prompt: str, **overrides: object):
@@ -178,39 +185,315 @@ def test_service_does_not_mutate_input() -> None:
     assert request.model_dump(mode="json") == before
 
 
-def test_llm_mode_without_configuration_returns_llm_not_configured(monkeypatch) -> None:
-    for name in ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]:
-        monkeypatch.delenv(name, raising=False)
+def test_mock_provider_still_works() -> None:
+    provider = MockWorkflowGenerationProvider()
+
+    generated = provider.generate("Route buyer and seller leads to sales from a contact.")
+
+    assert generated["name"] == "Lead routing"
+    assert generated["trigger_node_id"] == "new-contact"
+
+
+def test_mock_mode_selects_mock_provider_even_when_deepseek_is_configured(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
 
     response = FlowGenerationService().generate(
-        GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM)
+        GenerationRequest(
+            prompt="Route buyer and seller leads to sales from a contact.",
+            mode=GenerationMode.MOCK,
+        )
     )
+
+    assert response.flow is not None
+    assert response.provider == "mock"
+
+
+def test_llm_mode_without_configuration_returns_llm_not_configured(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+
+    response = FlowGenerationService(
+        llm_provider_factory=lambda request: DeepSeekProvider(api_key="")
+    ).generate(GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM))
 
     assert response.status is GenerationStatus.FAILED
     assert response.error_code == "LLM_NOT_CONFIGURED"
     assert response.flow is None
 
 
-def test_invalid_llm_json_path_is_not_used_in_disabled_adapter(monkeypatch) -> None:
-    monkeypatch.setenv("LLM_BASE_URL", "https://llm.example.test")
-    monkeypatch.setenv("LLM_API_KEY", "secret-test-key")
-    monkeypatch.setenv("LLM_MODEL", "demo-model")
+def test_deepseek_provider_missing_api_key_fails(monkeypatch) -> None:
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    provider = DeepSeekProvider(api_key="")
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "LLM_NOT_CONFIGURED"
+
+
+def test_llm_mode_never_silently_falls_back_to_mock(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
 
     response = FlowGenerationService().generate(
-        GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM)
+        GenerationRequest(prompt="Please automate this process.", mode=GenerationMode.LLM)
     )
 
     assert response.status is GenerationStatus.FAILED
     assert response.error_code == "LLM_NOT_CONFIGURED"
+    assert response.provider == "mock"
+    assert response.clarification_question is None
+    assert response.flow is None
+
+
+def test_provider_selection_uses_configured_deepseek_provider(monkeypatch) -> None:
+    class FakeProvider:
+        provider_name = "deepseek"
+        model_name = "deepseek-chat"
+
+        def generate(self, prompt: str) -> dict:
+            return MockWorkflowGenerationProvider().generate(
+                "Route buyer and seller leads to sales from a contact."
+            )
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+
+    response = FlowGenerationService(
+        llm_provider_factory=lambda request: FakeProvider(),
+    ).generate(GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM))
+
+    assert response.flow is not None
+    assert response.provider == "deepseek"
+    assert response.model_name == "deepseek-chat"
+
+
+def test_invalid_json_response_is_handled_safely() -> None:
+    provider = DeepSeekProvider(api_key="test-key", client_factory=FakeClientFactory("not-json"))
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_successful_deepseek_content_extraction_and_json_parsing() -> None:
+    provider_response = {
+        "choices": [{"message": {"content": "{\"status\":\"ok\"}"}}],
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate_workflow_data("Return status JSON.")
+
+    assert generated == {"status": "ok"}
+    assert provider.last_diagnostics["choices_present"] is True
+    assert provider.last_diagnostics["message_present"] is True
+    assert provider.last_diagnostics["content_present"] is True
+    assert provider.last_diagnostics["content_json_valid"] is True
+
+
+def test_successful_deepseek_automation_flow_validation() -> None:
+    flow = MockWorkflowGenerationProvider().generate(
+        "Route buyer and seller leads to sales from a contact."
+    )
+    provider_response = {"choices": [{"message": {"content": json_dump(flow)}}]}
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        model_name="deepseek-chat",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate("Route leads.")
+
+    assert generated["name"] == "Lead routing"
+    assert provider.last_diagnostics["automation_flow_valid"] is True
+
+
+def test_missing_choices_returns_invalid_llm_output() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump({"choices": []})),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate_workflow_data("Route leads.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_missing_message_returns_invalid_llm_output() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump({"choices": [{}]})),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate_workflow_data("Route leads.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_missing_content_returns_invalid_llm_output() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump({"choices": [{"message": {}}]})),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate_workflow_data("Route leads.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_invalid_content_json_returns_invalid_llm_output() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump({"choices": [{"message": {"content": "not-json"}}]})),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate_workflow_data("Route leads.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_valid_json_with_invalid_automation_flow_schema_fails() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(
+            json_dump({"choices": [{"message": {"content": "{\"status\":\"ok\"}"}}]})
+        ),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "INVALID_GENERATED_FLOW"
+
+
+def test_invalid_workflow_schema_returns_invalid_generated_flow(monkeypatch) -> None:
+    class InvalidSchemaProvider:
+        provider_name = "deepseek"
+        model_name = "deepseek-chat"
+
+        def generate(self, prompt: str) -> dict:
+            return {"id": "not-a-flow"}
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+
+    response = FlowGenerationService(
+        llm_provider_factory=lambda request: InvalidSchemaProvider()
+    ).generate(GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM))
+
+    assert response.status is GenerationStatus.FAILED
+    assert response.error_code == "INVALID_GENERATED_FLOW"
+
+
+def test_valid_mocked_deepseek_json_generates_flow(monkeypatch) -> None:
+    flow = MockWorkflowGenerationProvider().generate(
+        "Route buyer and seller leads to sales from a contact."
+    )
+    provider_response = {"choices": [{"message": {"content": json_dump(flow)}}]}
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        model_name="deepseek-chat",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate("Route leads.")
+
+    assert generated["name"] == "Lead routing"
+
+
+def test_response_provider_is_deepseek_for_mocked_valid_deepseek_response(monkeypatch) -> None:
+    class FakeProvider:
+        provider_name = "deepseek"
+        model_name = "deepseek-chat"
+
+        def generate(self, prompt: str) -> dict:
+            return MockWorkflowGenerationProvider().generate(
+                "Route buyer and seller leads to sales from a contact."
+            )
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+
+    response = FlowGenerationService(
+        llm_provider_factory=lambda request: FakeProvider()
+    ).generate(GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM))
+
+    assert response.flow is not None
+    assert response.provider == "deepseek"
+
+
+def test_timeout_handling_returns_provider_error() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=RaisingClientFactory(httpx.ConnectTimeout("timed out")),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "LLM_PROVIDER_TIMEOUT"
+
+
+def test_connection_failure_returns_connection_error() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=RaisingClientFactory(httpx.ConnectError("offline")),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "LLM_PROVIDER_CONNECTION_FAILED"
+
+
+def test_http_error_returns_provider_error() -> None:
+    request = httpx.Request("POST", "https://api.deepseek.com/chat/completions")
+    response = httpx.Response(401, request=request)
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=RaisingClientFactory(
+            httpx.HTTPStatusError(
+                "Unauthorized",
+                request=request,
+                response=response,
+            )
+        ),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "LLM_PROVIDER_ERROR"
+
+
+def test_unexpected_provider_error_returns_provider_error() -> None:
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=RaisingClientFactory(RuntimeError("unexpected")),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Route leads.")
+
+    assert exc_info.value.code == "LLM_PROVIDER_ERROR"
 
 
 def test_no_api_key_appears_in_logs_or_responses(monkeypatch, caplog) -> None:
-    monkeypatch.setenv("LLM_BASE_URL", "https://llm.example.test")
-    monkeypatch.setenv("LLM_API_KEY", "secret-test-key")
-    monkeypatch.setenv("LLM_MODEL", "demo-model")
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret-test-key")
 
     with caplog.at_level(logging.INFO):
-        response = FlowGenerationService().generate(
+        response = FlowGenerationService(
+            llm_provider_factory=lambda request: DeepSeekProvider(
+                api_key="secret-test-key",
+                client_factory=RaisingClientFactory(
+                    httpx.ConnectError("secret-test-key leaked by transport")
+                ),
+            )
+        ).generate(
             GenerationRequest(prompt="Route leads.", mode=GenerationMode.LLM)
         )
 
@@ -218,3 +501,102 @@ def test_no_api_key_appears_in_logs_or_responses(monkeypatch, caplog) -> None:
     log_text = "\n".join(record.getMessage() for record in caplog.records)
     assert "secret-test-key" not in serialized_response
     assert "secret-test-key" not in log_text
+
+
+def test_configuration_diagnostics_never_expose_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "super-secret-test-key")
+
+    diagnostics = llm_config_diagnostics()
+
+    assert diagnostics["deepseek_api_key_configured"] is True
+    assert "super-secret-test-key" not in str(diagnostics)
+
+
+def test_deepseek_provider_default_client_uses_trust_env_true(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class CapturingClient:
+        def __init__(self, *, timeout: httpx.Timeout, trust_env: bool) -> None:
+            captured["timeout"] = timeout
+            captured["trust_env"] = trust_env
+
+    monkeypatch.setattr("app.services.providers.deepseek_provider.httpx.Client", CapturingClient)
+    provider = DeepSeekProvider(api_key="test-key", timeout_seconds=30)
+
+    client = provider._default_client_factory()
+
+    assert isinstance(client, CapturingClient)
+    assert captured["trust_env"] is True
+
+
+def json_dump(value: object) -> str:
+    import json
+
+    return json.dumps(value)
+
+
+class FakeResponse:
+    def __init__(self, body: str, status: int = 200) -> None:
+        self._body = body
+        self.text = body
+        self.status_code = status
+        self.request = httpx.Request("POST", "https://api.deepseek.com/chat/completions")
+
+    def json(self) -> object:
+        import json
+
+        return json.loads(self._body)
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                "HTTP error",
+                request=self.request,
+                response=httpx.Response(self.status_code, request=self.request),
+            )
+
+
+class FakeClient:
+    def __init__(self, body: str, status: int = 200) -> None:
+        self.body = body
+        self.status = status
+
+    def __enter__(self) -> "FakeClient":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def post(self, url: str, headers: dict[str, str], json: object) -> FakeResponse:
+        return FakeResponse(self.body, self.status)
+
+
+class FakeClientFactory:
+    def __init__(self, body: str, status: int = 200) -> None:
+        self.body = body
+        self.status = status
+
+    def __call__(self) -> FakeClient:
+        return FakeClient(self.body, self.status)
+
+
+class RaisingClient:
+    def __init__(self, exception: Exception) -> None:
+        self.exception = exception
+
+    def __enter__(self) -> "RaisingClient":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def post(self, url: str, headers: dict[str, str], json: object) -> FakeResponse:
+        raise self.exception
+
+
+class RaisingClientFactory:
+    def __init__(self, exception: Exception) -> None:
+        self.exception = exception
+
+    def __call__(self) -> RaisingClient:
+        return RaisingClient(self.exception)

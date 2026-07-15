@@ -362,3 +362,289 @@ Implement focused natural-language workflow generation for the hackathon demo, w
 ### Tests Executed
 
 - `.venv/bin/python -m pytest` - passed with 117 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
+
+## 2026-07-15 - Frontend Demo
+
+### Task
+
+Create a polished minimal React, TypeScript, Vite, and Tailwind CSS frontend demo for FlowPilot's prompt-to-generate-to-validate-to-explain-to-simulate flow.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected the repository structure, backend models, generation/simulation APIs, and existing examples.
+- Created a standalone `frontend/` Vite app.
+- Added typed frontend interfaces matching the backend response shapes.
+- Added fetch wrappers for workflow generation and simulation.
+- Built focused UI components for the header, prompt panel, workflow summary, validation findings, explanation timeline, JSON viewer, and simulation panel.
+- Added narrow local-development CORS support for the Vite frontend origins.
+- Added frontend setup instructions to `README.md`.
+
+### Design Decisions
+
+- Used a single-page app with local React state rather than routing or a state-management framework.
+- Used a restrained developer-tool visual style with white panels, slate borders, compact metrics, severity badges, and a monospaced JSON viewer.
+- Kept the layout desktop/laptop oriented, with a main workflow column and a sticky-feeling JSON side column through page structure rather than complex behavior.
+- Kept simulation inputs derived from detected `ask_question` nodes so the demo stays tied to generated workflow structure.
+
+### Manual Review Checklist
+
+- [ ] Run the backend locally and verify generation and simulation from the browser.
+- [ ] Review visual polish in Chrome/Safari at laptop and desktop widths.
+- [ ] Confirm API error messages are friendly enough for demo use.
+- [ ] Confirm local-development CORS origins are sufficient for the demo environment.
+- [ ] Review whether example prompts should be adjusted for the live demo narrative.
+
+### Tests Performed
+
+- `npm install --strict-ssl=false` - passed after local npm registry certificate issues blocked the normal install.
+- `npm install --strict-ssl=false --save-dev @types/react @types/react-dom` - passed.
+- `npm run build` - passed.
+- `.venv/bin/python -m pytest` - passed with 117 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
+- Final `npm run build` - passed.
+
+## 2026-07-15 - Frontend Product UI Refactor
+
+### Task
+
+Refactor the functional frontend from an internal-dashboard feel into a polished AI product demo interface while keeping the backend API unchanged.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected the existing React, TypeScript, Vite, and Tailwind frontend.
+- Reworked the app shell into a responsive `max-w-7xl mx-auto w-full` layout with a desktop two-column workspace and single-column smaller-screen layout.
+- Added a visual workflow timeline component without React Flow.
+- Refined prompt, overview, validation, explanation, simulation, and JSON sections with softer cards, clearer hierarchy, polished empty/loading/result states, and secondary raw JSON treatment.
+
+### Design Decisions
+
+- Kept the demo as a single-page product workflow: prompt builder, workflow overview, validation and explanation, simulation, then raw JSON.
+- Used rounded panels, subtle shadows, restrained slate neutrals, severity colors, and compact badges to align with modern developer-tool UI.
+- Kept animations minimal and limited to existing loading spinners.
+- Avoided new state-management, routing, visualization, or authentication dependencies.
+
+### Manual Review Checklist
+
+- [ ] Verify the UI visually at 1280px, 1024px, 768px, and a mobile-width viewport.
+- [ ] Run the backend locally and confirm generate and simulate flows work end to end from the browser.
+- [ ] Confirm the timeline descriptions are clear enough for demo narration.
+- [ ] Confirm raw JSON being collapsed by default fits the intended demo flow.
+
+### Tests Performed
+
+- `npm run build` - passed.
+
+## Final Review Preparation
+
+### Documentation Review
+
+- Reworked `README.md` for public GitHub presentation with sections for overview, demo, features, architecture, lifecycle, agentic development, quality and safety, testing, trade-offs, future improvements, and local setup.
+- Added `docs/write-up.md` as a concise engineering write-up for judges or reviewers.
+- Added `docs/demo-script.md` for a 3-5 minute hackathon-style presentation.
+- Added `docs/architecture.md` with frontend/backend/service responsibilities and a Mermaid diagram.
+- Added `docs/final-checklist.md` for final manual submission readiness.
+- Added `docs/images/` placeholder directory for future demo screenshots.
+
+### Demo Preparation
+
+- Confirmed the documented API endpoints match the implemented FastAPI routes.
+- Clarified that generation, validation, explanation, and simulation are implemented.
+- Clarified that persistence, real integrations, authentication, analytics, and a visual graph editor are future work.
+- Kept raw JSON and examples documented as demo artifacts rather than production workflow storage.
+
+### Known Limitations
+
+- Mock generation supports only the intended demo scenarios.
+- LLM mode is configuration-gated and not the primary runnable path.
+- Simulation uses supplied mock API outcomes and never calls external services.
+- Workflow state is not persisted in a backend database.
+- The frontend is a polished demo surface, not a full workflow editor.
+
+### Verification Executed
+
+- `pytest` - attempted, but the command was not available on the shell PATH.
+- `.venv/bin/python -m pytest` - passed with 117 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `npm install` - passed, dependencies already up to date.
+- `npm run build` - passed.
+
+### Manual Review Checklist
+
+- [ ] Repository owner reviews README claims against the final demo narrative.
+- [ ] Repository owner adds or replaces screenshot placeholders under `docs/images/`.
+- [ ] Repository owner runs the demo locally from a clean checkout.
+- [ ] Repository owner confirms final checklist items before public submission.
+
+## 2026-07-15 - DeepSeek LLM Generation Provider
+
+### Task
+
+Add an optional real LLM generation provider using DeepSeek's OpenAI-compatible API while preserving deterministic mock generation as the default stable path.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected generation service, API route, frontend generation UI, configuration, and tests.
+- Introduced a lightweight provider interface with mock and DeepSeek providers.
+- Moved deterministic templates into `MockWorkflowGenerationProvider`.
+- Added `DeepSeekProvider` with JSON-only prompt constraints, timeout handling, masked provider errors, and no API-key exposure.
+- Updated `FlowGenerationService` to select mock for `mode=mock` and configured provider for `mode=llm`.
+- Added frontend mode selection for Mock Generation and DeepSeek Generation.
+- Added unit and integration tests using mocked provider behavior only.
+
+### Provider Abstraction Rationale
+
+- Provider selection isolates raw workflow generation from parsing, validation, explanation, and response semantics.
+- Mock remains default because it is deterministic, offline, and reliable for demos and tests.
+- DeepSeek is optional for production-oriented integration proof without adding frameworks, RAG, vector databases, or prompt-management systems.
+
+### Safety Boundary
+
+- Provider output is raw JSON-like data only.
+- LLM JSON is parsed and validated with `AutomationFlow.model_validate`.
+- Validation runs before explanation and before any simulation can happen.
+- API keys are read from environment configuration and are never returned in structured errors.
+
+### Manual Review Checklist
+
+- [ ] Configure DeepSeek locally and run one real LLM generation request.
+- [ ] Confirm the returned workflow matches the intended public schema.
+- [ ] Confirm validation and explanation are present in the LLM response.
+- [ ] Confirm API-key handling is acceptable for the demo environment.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 31 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `.venv/bin/python -m pytest` - passed with 124 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `npm run build` - passed.
+
+## 2026-07-15 - LLM Provider Configuration Fix
+
+### Task
+
+Fix LLM provider selection so `mode=llm` uses the configured DeepSeek provider and never silently falls back to mock generation.
+
+### Codex Contribution
+
+- Inspected actual configuration, route, generation model, provider, and service wiring.
+- Confirmed the project uses a module-level `Settings` instance plus direct `os.getenv` calls, not `get_settings`, pydantic-settings, dependency injection, or automatic dotenv loading.
+- Added a small repository-root `.env` loader in `app.core.config`.
+- Updated provider selection so `mode=mock` uses mock, while `mode=llm` requires `LLM_PROVIDER=deepseek` or returns `LLM_NOT_CONFIGURED`.
+- Added safe INFO logs for requested mode, selected provider, and model.
+- Added `scripts/check_llm_config.py` for redacted configuration diagnostics.
+- Added regression tests for mock selection, DeepSeek selection, missing keys, no silent fallback, provider reporting, and diagnostic redaction.
+
+### Root Cause
+
+The previous code read `LLM_PROVIDER` only from process environment or the default `settings.llm_provider`. The repository-root `.env` file was not loaded, so local DeepSeek configuration was invisible unless manually exported. When `mode=llm` saw the default provider value `mock`, the generation service returned the mock provider, which produced `clarification_required` for unsupported prompts.
+
+### Safety Decisions
+
+- The diagnostic script prints only whether the DeepSeek API key is configured.
+- Logs do not include API keys, prompts, or provider response bodies.
+- Tests mock all DeepSeek network behavior.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 35 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `pytest` - attempted, but the executable is not available on PATH in this shell.
+- `.venv/bin/python -m pytest` - passed with 128 tests and 1 upstream FastAPI/Starlette deprecation warning.
+
+## 2026-07-15 - DeepSeek Provider Request/Parsing Fix
+
+### Task
+
+Fix the DeepSeek provider implementation after direct DeepSeek API calls succeeded but FlowPilot still returned `LLM_PROVIDER_ERROR`.
+
+### Codex Contribution
+
+- Inspected the actual DeepSeek provider implementation before editing.
+- Compared the request payload against the known-good DeepSeek request shape.
+- Added `max_tokens` and `stream=false` to the provider payload.
+- Kept the final endpoint normalized as `base_url.rstrip("/") + "/chat/completions"`.
+- Expanded the system prompt with JSON-only instructions, schema details, no unsupported fields, and a compact valid `AutomationFlow` example.
+- Added defensive response parsing for missing choices, message, content, empty content, invalid JSON, and invalid schema.
+- Added specific provider error mappings for timeout, connection failure, HTTP failure, invalid LLM output, invalid generated flow, and unexpected provider errors.
+- Added safe provider diagnostics and local-development logs without API keys, authorization headers, full prompts, or generated workflow content.
+- Added `scripts/check_deepseek_connection.py` to exercise the same provider code path as the application.
+
+### Previous Parsing Path
+
+- Read the raw urllib response body.
+- `json.loads(response_body)`.
+- Read `provider_response["choices"][0]["message"]["content"]`.
+- `json.loads(content)`.
+- Collapsed many provider failures into generic `LLM_PROVIDER_ERROR`.
+
+### Corrected Parsing Path
+
+- Read and log sanitized HTTP status and response content length.
+- Parse the DeepSeek HTTP envelope.
+- Defensively extract `choices[0].message.content`.
+- Parse `content` as workflow JSON.
+- Validate the parsed workflow JSON as `AutomationFlow`.
+- Return structured provider errors by failure type.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 44 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `pytest` - attempted, but the executable is not available on PATH in this shell.
+- `.venv/bin/python -m pytest` - passed with 138 tests and 1 upstream FastAPI/Starlette deprecation warning.
+
+## 2026-07-15 - DeepSeek HTTP Client Alignment
+
+### Task
+
+Align `DeepSeekProvider` with the verified working `httpx.Client(timeout=30.0, trust_env=True)` request path.
+
+### Codex Contribution
+
+- Inspected the existing provider before editing and confirmed it used stdlib `urllib.request.urlopen`, not `httpx`.
+- Replaced the urllib request path with `httpx.Client(timeout=httpx.Timeout(configured_timeout), trust_env=True)`.
+- Moved `httpx` into runtime dependencies because the DeepSeek provider imports it in application code.
+- Kept the endpoint as `base_url.rstrip("/") + "/chat/completions"`.
+- Preserved request headers and JSON payload shape.
+- Added safe diagnostics for proxy environment presence, timeout, trust_env, exception class, and sanitized exception message.
+- Added specific handling for `httpx.ProxyError`, `ConnectTimeout`, `ConnectError`, `ReadTimeout`, `HTTPStatusError`, JSON decoding, and Pydantic validation.
+- Updated tests to mock the httpx client path and assert `trust_env=True`.
+
+### Root Cause
+
+The standalone verified request used `httpx.Client(..., trust_env=True)`, while the application provider used urllib. That meant proxy/environment/TLS behavior could differ from the proven working path and connection failures were being mapped through urllib-style exceptions.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 46 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `pytest` - attempted, but the executable is not available on PATH in this shell.
+- `.venv/bin/python -m pytest` - passed with 139 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- Browser responsive smoke check at 1280px, 1024px, 768px, and 390px - passed with expected column behavior and no horizontal overflow.
+
+## 2026-07-15 - Misty-Blue Frontend Visual Refactor
+
+### Task
+
+Refactor the FlowPilot frontend visual design into a calm professional misty-blue AI developer-tool theme without changing backend API usage, data models, business logic, or component responsibilities.
+
+### Codex Contribution
+
+- Updated the frontend color system around `#F3F6FA`, `#6B8EAE`, `#3F5F7A`, `#E8F0F7`, and `#8AA6B8`.
+- Replaced the previous generic slate/black/white-heavy styling with misty-blue surfaces, primary actions, muted text, and softer status colors.
+- Made workflow timeline nodes more visually prominent with blue cards, blue node markers, and connecting lines.
+- Kept the responsive two-column desktop and single-column tablet/mobile layout intact.
+- Kept raw JSON collapsed and visually secondary.
+
+### Design Decisions
+
+- Avoided pure black and broad pure-white card usage in favor of blue-tinted surfaces and dark blue text.
+- Preserved existing component boundaries and frontend data flow.
+- Kept visual changes CSS/Tailwind-only with no new dependencies.
+
+### Manual Review Checklist
+
+- [ ] Review the misty-blue palette in the browser against the intended Linear/Notion/developer-tool feel.
+- [ ] Confirm contrast is comfortable for demo projection.
+- [ ] Verify generated workflow, validation, explanation, simulation, and JSON states still feel visually balanced.
+
+### Tests Performed
+
+- `npm run build` - passed.

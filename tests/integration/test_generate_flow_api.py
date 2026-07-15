@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.providers import MockWorkflowGenerationProvider
 
 
 def test_generate_lead_routing_prompt_returns_flow() -> None:
@@ -84,3 +85,33 @@ def test_generate_include_explanation_false_returns_null_explanation() -> None:
 
     assert response.status_code == 200
     assert response.json()["explanation"] is None
+
+
+def test_generate_llm_mode_uses_mocked_deepseek_provider(monkeypatch) -> None:
+    class FakeDeepSeekProvider:
+        provider_name = "deepseek"
+        model_name = "deepseek-chat"
+
+        def generate(self, prompt: str) -> dict:
+            return MockWorkflowGenerationProvider().generate(
+                "Route buyer and seller leads from a new contact to sales."
+            )
+
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setattr(
+        "app.services.generation_service.DeepSeekProvider",
+        lambda: FakeDeepSeekProvider(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/flows/generate",
+        json={"prompt": "Route leads with DeepSeek.", "mode": "llm"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["flow"] is not None
+    assert body["provider"] == "deepseek"
+    assert body["validation"] is not None
+    assert body["explanation"] is not None

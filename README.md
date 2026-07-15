@@ -1,273 +1,237 @@
 # FlowPilot
 
-FlowPilot is a lightweight AI-assisted automation builder created as a hackathon demo.
+FlowPilot is an AI-assisted automation builder that turns plain-English workflow ideas into structured, validated, explainable, and safely simulated automation flows.
 
-Users describe an automation in plain English, and FlowPilot converts that intent into a structured workflow, validates the generated flow, explains it in plain language, and allows the user to run a mock execution before using it.
+It is a public hackathon-style demo focused on the core workflow intelligence layer: generation, validation, explanation, and deterministic mock execution.
 
-Example:
+## Overview
 
-> When a new customer contacts us, ask whether they need sales, support, or order help. Route sales inquiries to the sales team, send support users a help article, and ask order users for their order ID.
+FlowPilot converts natural-language automation ideas into typed workflow artifacts. Each generated flow is validated before it can be simulated, explained in business-readable language, and executed only in a mock environment with supplied user inputs and mock API outcomes.
 
-FlowPilot will:
+The project is intentionally small and demo-oriented. It shows how an AI workflow builder can produce useful automation structure without immediately reaching for production infrastructure, real integrations, or a full visual graph editor.
 
-1. generate a structured automation flow;
-2. validate the flow and highlight risky or broken paths;
-3. explain the automation in plain English;
-4. run a mock conversation through the flow;
-5. suggest fixes and test cases when problems are found.
+## Demo
 
----
+Screenshot placeholders live under `docs/images/`.
 
-## Problem
+![Architecture screenshot](docs/images/architecture.png)
 
-Creating automation workflows manually requires users to translate business intent into nodes, branches, conditions, and routing rules.
+![Workflow generation screenshot](docs/images/workflow-generation.png)
 
-That process is error-prone because a flow may contain:
+![Simulation screenshot](docs/images/simulation.png)
 
-- unreachable nodes;
-- missing fallback branches;
-- invalid node references;
-- unsafe API calls;
-- loops without limits;
-- routes that never reach a terminal action;
-- missing handling for unexpected user input.
-
-FlowPilot reduces that friction by converting natural-language intent into a concrete workflow artifact and reviewing it before execution.
-
----
-
-## MVP Scope
-
-The prototype intentionally prioritizes a small, working backend over a broad visual builder.
-
-### Included
-
-- Natural-language automation input
-- Structured workflow generation
-- JSON flow artifact
-- Deterministic validation
-- Plain-English explanation
-- Mock conversation execution
-- Agent-generated review suggestions
-- Agent-generated test cases
-- In-memory storage
-- Basic execution logs and trace IDs
-- Interactive API documentation through FastAPI
-
-### Supported node types
-
-- `trigger`
-- `send_message`
-- `ask_question`
-- `condition`
-- `api_call`
-- `assign_to_team`
-- `wait`
-- `end`
-
-### Out of scope
-
-- Real messaging platform integration
-- Authentication and multi-tenancy
-- Persistent database storage
-- Production-grade prompt management
-- Full drag-and-drop graph editing
-- Real external API execution
-- Human approval workflows
-- Deployment infrastructure
-
----
-
-## Core Flow
+Example prompt:
 
 ```text
-Describe -> Generate -> Validate -> Explain -> Simulate
+When a new contact messages us, ask whether they are a buyer or seller.
+Route buyers to the sales team and send sellers a help article.
 ```
 
----
+FlowPilot can generate the workflow, validate graph risks, explain the business logic, and run a deterministic mock simulation from that prompt.
 
-## Example Prompts
+## Features
 
-### Lead qualification
+### Workflow Generation
 
-> When a new contact messages us, ask whether they are a buyer or seller. Route buyers to the sales team and send sellers a help article.
-
-### Support triage
-
-> When a customer asks for help, ask whether the issue is billing, account access, or something else. Send billing questions to finance, account access issues to support, and route unknown issues to a human agent.
-
-### Order status
-
-> When a customer asks about an order, ask for the order ID, call the order status API, send the result, and route the conversation to support if the API fails.
-
----
-
-## Architecture
-
-```text
-Client / Swagger UI
-        |
-        v
-FastAPI API Layer
-        |
-        +--> Flow Generation Service
-        +--> Flow Validation Service
-        +--> Flow Explanation Service
-        +--> Flow Simulation Engine
-        +--> Test Case Generation Service
-        +--> In-Memory Repository
-```
-
-### Main components
-
-- **Flow Generation Service**: converts plain-English intent into a typed workflow.
-- **Validation Service**: performs deterministic schema and graph checks.
-- **Explanation Service**: describes the workflow in plain language.
-- **Simulation Engine**: executes nodes with mock user input and mock API responses.
-- **Test Generation Service**: proposes happy-path, fallback, and failure-path tests.
-- **In-Memory Repository**: stores flows for the lifetime of the application process.
-
----
-
-## Proposed Technology
-
-- Python 3.12+
-- FastAPI
-- Pydantic v2
-- Uvicorn
-- Pytest
-- Structured JSON logging
-- Optional LLM provider integration
-
----
-
-## Quality and Safety
-
-The application will validate:
-
-- unique node IDs;
-- valid trigger nodes;
-- valid transition targets;
-- graph reachability;
-- terminal path existence;
-- fallback branches;
-- possible infinite loops;
-- API failure handling;
-- unsupported node configuration;
-- accidental secret exposure.
-
-The simulation engine will use a maximum step limit and will never execute real external API calls in the MVP.
+- Natural-language prompt input.
+- Structured `AutomationFlow` creation.
+- Deterministic template-based generation for demo scenarios:
+  - lead routing;
+  - support triage;
+  - order status lookup.
+- Optional DeepSeek provider using DeepSeek's OpenAI-compatible chat completion API.
+- Vague prompts return a structured clarification response instead of inventing unsupported behavior.
 
 ### Validation
 
-FlowPilot uses Pydantic for schema validation and a deterministic validation service for graph and business-rule checks.
+- Pydantic schema validation for workflow shape and typed node configuration.
+- Deterministic graph validation for dangling transitions, reachability, terminal paths, fallback handling, duplicate transitions, cycles, API success/failure paths, dead ends, and variable usage.
+- Findings use stable machine-readable codes and severities: `error`, `warning`, and `info`.
 
-Validation findings use stable machine-readable codes and one of three severities:
+### Explanation
 
-- `error`: the flow is not valid.
-- `warning`: the flow can still be used, but should be reviewed.
-- `info`: the flow is valid, with a helpful note.
+- Business-readable workflow summary.
+- Reachable-step walkthrough in deterministic breadth-first order.
+- Outcome summaries.
+- Validation risks included in explanation output.
+- Defensive API URL display that avoids exposing query parameter values.
 
-The validator checks transition targets, reachability, terminal paths, fallback branches, suspicious cycles, duplicate transitions, API success and failure paths, question variables, and empty messages.
+### Simulation
 
-### Mock Simulation
+- Deterministic node-by-node mock execution.
+- Supplied user inputs by `ask_question` node ID.
+- Supplied mock API outcomes by `api_call` node ID.
+- Transcript output for bot/user messages.
+- Execution trace output for debugging and demo narration.
+- Step-limit protection for loops.
+- No real external API calls.
 
-FlowPilot can run a deterministic mock execution of a validated workflow without calling external services.
+## Architecture
 
-The simulator supports trigger, message, question, condition, API call, team assignment, wait, and end nodes. User answers are supplied by ask-question node ID, and mock API outcomes are supplied by API-call node ID.
+FlowPilot has a standalone React frontend and a FastAPI backend. The backend is organized around typed Pydantic models and focused deterministic services.
 
-If a required user answer is missing, execution returns `waiting_for_input` instead of failing. API calls require explicit mock outcomes and never make real network requests.
+```mermaid
+flowchart TD
+    User["User / Demo Presenter"] --> Frontend["React + TypeScript Frontend"]
+    Frontend --> API["FastAPI API"]
+    API --> Generation["Generation Service"]
+    API --> Validation["Validation Service"]
+    API --> Explanation["Explanation Service"]
+    API --> Simulation["Simulation Service"]
+    Generation --> Mock["Mock Provider"]
+    Generation --> DeepSeek["DeepSeek Provider"]
+    Generation --> Models["Pydantic Workflow Models"]
+    Validation --> Models
+    Explanation --> Models
+    Simulation --> Models
+    Generation --> Validation
+    Generation --> Explanation
+    Simulation --> Validation
+```
 
-Execution uses a maximum step count to stop retry loops safely. In this MVP, user inputs are reused by node ID, so repeated fallback loops with the same unexpected answer will eventually return `step_limit_exceeded`.
+### Frontend
 
-### Plain-English Explanation
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Single-page demo interface for prompt, generation, validation, explanation, simulation, and raw JSON inspection.
 
-FlowPilot can generate deterministic plain-English explanations for existing workflow artifacts without using an LLM.
+### Backend
 
-The explanation service walks reachable nodes in breadth-first order from the trigger, describes each step, lists reachable completion outcomes, and includes validation risks with their severity and stable codes.
+- FastAPI application.
+- Pydantic v2 models.
+- Stateless request/response API endpoints.
+- Focused services for generation, validation, explanation, and simulation.
 
-API URLs are described defensively so query parameter values are not exposed. Explanation output is intended for review and demo clarity; it does not generate or modify workflows.
+### Services
 
-### Generation
+- `FlowGenerationService`: classifies supported prompts and builds fresh workflow templates.
+- `MockWorkflowGenerationProvider`: deterministic, offline generation for stable demos.
+- `DeepSeekProvider`: optional OpenAI-compatible LLM generation through DeepSeek.
+- `FlowValidationService`: performs deterministic schema-adjacent graph and business-rule validation.
+- `FlowExplanationService`: produces deterministic plain-English explanations from flows and validation findings.
+- `FlowSimulationService`: runs deterministic mock execution with transcripts, trace entries, and step limits.
 
-FlowPilot can generate a workflow artifact from a natural-language prompt in deterministic `mock` mode.
+### Models
 
-The built-in mock generator supports three demo scenarios: lead routing, support triage, and order status lookup. If a prompt is too vague, it returns a clarification question instead of inventing a broad automation.
+- Workflow domain models: `AutomationFlow`, `FlowNode`, `Transition`, typed node configs, and enums.
+- Validation result models.
+- Explanation models.
+- Simulation request/result models.
+- Generation request/response models.
 
-Generated flows are parsed as `AutomationFlow`, validated with the deterministic validator, and optionally explained before they are returned. A generated flow is never treated as executable unless validation succeeds.
+## Workflow Lifecycle
 
-Optional `llm` mode is configuration-gated through OpenAI-compatible environment variables. Mock mode remains the required runnable path and does not need network access or API keys.
+```text
+User Intent
+  |
+  v
+Generate Workflow
+  |
+  v
+Validate
+  |
+  v
+Explain
+  |
+  v
+Simulate
+```
 
----
+Validation is the boundary between generated structure and execution. Simulation uses the validation service directly and returns structured failure results when validation errors exist.
+
+## LLM Integration
+
+Mock generation is the default and stable path:
+
+```env
+LLM_PROVIDER=mock
+```
+
+DeepSeek generation is optional. To use it locally, configure:
+
+```env
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+LLM_TIMEOUT_SECONDS=30
+```
+
+The DeepSeek provider calls the OpenAI-compatible chat completions endpoint and requests JSON-only output matching the `AutomationFlow` schema. The prompt constrains node vocabulary, asks for workflow JSON only, and does not ask the model to generate or execute arbitrary code.
+
+LLM output is never returned directly as an executable workflow. The pipeline is:
+
+```text
+User Prompt -> DeepSeek API -> Parse JSON -> AutomationFlow.model_validate()
+  -> FlowValidationService -> FlowExplanationService
+```
+
+If configuration is missing, the provider fails with `LLM_NOT_CONFIGURED`. Network failures return `LLM_PROVIDER_ERROR`, invalid JSON returns `INVALID_LLM_OUTPUT`, and schema mismatches return `INVALID_GENERATED_FLOW`. API keys are not logged or returned in API errors.
 
 ## Agentic Development
 
-Codex or another coding agent will be used intentionally for:
+Codex was used as an engineering assistant throughout the project. It helped with architecture exploration, schema design, implementation support, debugging, regression tests, documentation drafts, and review checklists.
 
-- architecture proposals;
-- schema generation;
-- implementation;
-- code review;
-- debugging;
-- test design;
-- regression analysis.
+The project was not treated as an autonomous AI-generated code dump. Human responsibility remains with the repository owner for architecture choices, safety constraints, demo scope, final review, and submission readiness. Agent-assisted design and testing work is recorded in `docs/agent-log.md`.
 
-Agent output will be reviewed and validated rather than accepted blindly.
+## Quality and Safety
 
-Important prompts, findings, and manual decisions will be recorded in:
+- Generated workflows are parsed as typed Pydantic models.
+- Generated workflows are validated before simulation.
+- Simulation never makes real external API calls.
+- API-call behavior requires explicit mock outcomes.
+- Step limits prevent infinite execution loops.
+- Structured validation findings and simulation errors are returned instead of raw exceptions.
+- Simulation results include trace IDs.
+- Tests cover domain models, public exports, validation, explanation, simulation, generation, examples, and API endpoints.
 
-```text
-docs/agent-log.md
+## Testing
+
+Run backend tests:
+
+```bash
+pytest
 ```
 
----
+If you are using the local virtual environment:
 
-## Suggested Project Structure
-
-```text
-flowpilot/
-├── app/
-│   ├── api/
-│   ├── models/
-│   ├── services/
-│   ├── executors/
-│   ├── repositories/
-│   ├── core/
-│   └── main.py
-├── tests/
-│   ├── unit/
-│   └── integration/
-├── docs/
-│   ├── agent-log.md
-│   ├── architecture.md
-│   ├── write-up.md
-│   └── demo-script.md
-├── examples/
-├── .env.example
-├── pyproject.toml
-└── README.md
+```bash
+.venv/bin/python -m pytest
 ```
 
----
+Run the frontend build:
 
-## Proposed API
-
-```text
-POST /api/flows/generate
-POST /api/flows/validate
-POST /api/flows/simulate
-POST /api/flows/explain
-POST /api/flows/{flow_id}/validate
-GET  /api/flows/{flow_id}/explain
-POST /api/flows/{flow_id}/simulate
-POST /api/flows/{flow_id}/tests/generate
-GET  /api/flows/{flow_id}
-GET  /health
+```bash
+cd frontend
+npm install
+npm run build
 ```
 
----
+## Trade-offs
 
-## Local Development
+- In-memory/client-side demo state only; there is no database or persistent workflow store.
+- Mock API outcomes are used instead of real external calls.
+- The node vocabulary is constrained so validation and simulation remain predictable.
+- The frontend is a polished demo interface, not a full workflow editor.
+- Template-based generation is intentionally narrow to keep the hackathon demo reliable.
+- The DeepSeek provider demonstrates production-oriented LLM integration but does not include retries, streaming, prompt versioning, or multi-provider orchestration.
+
+## Future Improvements
+
+- React Flow editor for visual workflow editing.
+- Persistent storage.
+- Workflow versioning and rollback.
+- Real messaging, CRM, ticketing, and API integrations.
+- Analytics and quality scoring for generated workflows.
+- Human approval and publishing workflow.
+- Credential management for real integrations.
+- Expanded prompt coverage and evaluation datasets.
+
+## Running Locally
+
+### Backend
 
 ```bash
 python3 -m venv .venv
@@ -276,39 +240,38 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Open:
+Open the API docs:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Run tests:
+Implemented API endpoints:
 
-```bash
-pytest
+```text
+GET  /health
+POST /api/flows/generate
+POST /api/flows/validate
+POST /api/flows/explain
+POST /api/flows/simulate
 ```
 
----
+### Frontend
 
-## Trade-offs
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- In-memory storage keeps the demo small and easy to run.
-- Mock API calls avoid external dependencies and secret handling.
-- Swagger UI provides a real interactive prototype without requiring a frontend.
-- A constrained node vocabulary keeps the execution engine predictable.
+The frontend expects the FastAPI backend at:
 
----
+```text
+http://localhost:8000
+```
 
-## Possible V2 Features
+Open the Vite app at the URL printed by `npm run dev`, usually:
 
-- React Flow visual editor
-- PostgreSQL persistence
-- Workflow versioning and rollback
-- Human approval before publishing
-- Prompt and model version tracking
-- Credential vault
-- Role-based access control
-- Workflow analytics
-- Reusable templates
-- Workflow diff and regression simulation
-- Evaluation dataset for generation quality
+```text
+http://localhost:5173
+```
