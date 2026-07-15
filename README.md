@@ -158,6 +158,18 @@ The application will validate:
 
 The simulation engine will use a maximum step limit and will never execute real external API calls in the MVP.
 
+### Validation
+
+FlowPilot uses Pydantic for schema validation and a deterministic validation service for graph and business-rule checks.
+
+Validation findings use stable machine-readable codes and one of three severities:
+
+- `error`: the flow is not valid.
+- `warning`: the flow can still be used, but should be reviewed.
+- `info`: the flow is valid, with a helpful note.
+
+The validator checks transition targets, reachability, terminal paths, fallback branches, suspicious cycles, duplicate transitions, API success and failure paths, question variables, and empty messages.
+
 ---
 
 ## Agentic Development
@@ -214,6 +226,7 @@ flowpilot/
 
 ```text
 POST /api/flows/generate
+POST /api/flows/validate
 POST /api/flows/{flow_id}/validate
 GET  /api/flows/{flow_id}/explain
 POST /api/flows/{flow_id}/simulate

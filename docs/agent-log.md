@@ -147,3 +147,47 @@ The Pydantic models define FlowPilot's public domain contract. Correcting the co
 - The project is still early enough to remove incompatible schema fields instead of preserving backward compatibility.
 - Dangling transition targets, reachability, loop, fallback, and terminal-path graph validation belong in a future validation service, not this model refactor.
 - No health endpoint, API endpoint, generation service, simulation engine, or LLM integration should be changed in this task.
+
+## 2026-07-15 - Deterministic Workflow Validation Service
+
+### Task
+
+Implement deterministic graph and business-rule validation for `AutomationFlow`, expose it through `POST /api/flows/validate`, and document the validation behavior.
+
+### Codex Contribution
+
+- Read `README.md` and `AGENTS.md` before making changes.
+- Inspected the current workflow models, validation result models, example workflow, routes, service package, tests, and git status.
+- Added `FlowValidationService` with stable finding codes, deterministic finding ordering, and `is_valid` semantics based on error findings.
+- Added `POST /api/flows/validate` without storage, mutation, generation, simulation, explanation, or external calls.
+- Exported `FlowValidationService` from `app.services`.
+- Added unit tests for graph validation rules and integration tests for the validation endpoint.
+- Updated the README with a concise validation section.
+
+### Graph Algorithms Proposed
+
+- Build an adjacency list from node transitions.
+- Use iterative traversal from `trigger_node_id` to compute reachable nodes while ignoring dangling targets safely.
+- Use reverse adjacency from end nodes to compute which nodes have at least one terminal path.
+- Use DFS over the reachable subgraph to detect cycles, then canonicalize each cycle to avoid duplicate findings.
+- Detect duplicate transitions per node using `(target_node_id, condition, is_fallback)` keys.
+
+### Assumptions Made
+
+- API-call transition classification is conservative and text-based, using labels and conditions for common success and failure indicators.
+- Fallback transitions from API-call nodes count as failure paths.
+- Cycles are warnings because retry and clarification loops can be intentional.
+- Dangling transition targets should not crash traversal or cycle detection.
+- Graph libraries are unnecessary for this project scope.
+
+### Manual Review Checklist
+
+- [ ] Confirm the validation finding messages are clear enough for the hackathon demo.
+- [ ] Confirm the API success/failure path heuristics match the intended workflow authoring language.
+- [ ] Review whether cycle warnings should include more or less path detail.
+- [ ] Decide whether additional graph checks should be added later in a dedicated validation iteration.
+- [ ] Confirm the upstream FastAPI/Starlette test-client deprecation warning does not need immediate dependency pinning.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest` - passed with 31 tests and 1 upstream deprecation warning from FastAPI/Starlette test client imports.
