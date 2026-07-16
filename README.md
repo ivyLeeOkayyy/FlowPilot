@@ -12,13 +12,31 @@ The project is intentionally small and demo-oriented. It shows how an AI workflo
 
 ## Demo
 
-Screenshot placeholders live under `docs/images/`.
+Demo video: _Coming soon._
 
-![Architecture screenshot](docs/images/architecture.png)
+### Application Overview
 
-![Workflow generation screenshot](docs/images/workflow-generation.png)
+The FlowPilot home screen introduces the prompt-driven workflow builder and generation modes.
 
-![Simulation screenshot](docs/images/simulation.png)
+![FlowPilot Home](docs/screenshots/flowpilot-home.png)
+
+### Generated Workflow
+
+Mock generation creates a structured workflow timeline from a plain-English automation prompt.
+
+![Workflow Result](docs/screenshots/mock-workflow-result.png)
+
+### Validation and Explanation
+
+Generated workflows are validated and translated into a concise plain-English plan before simulation.
+
+![Workflow Validation](docs/screenshots/workflow-validation-and-explanation.png)
+
+### Simulation Execution
+
+The simulator runs the generated workflow with mock user input and shows transcript plus execution trace.
+
+![Workflow Simulation](docs/screenshots/workflow-simulation.png)
 
 Example prompt:
 
