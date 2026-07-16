@@ -18,6 +18,7 @@ from app.services.providers import (
     GenerationProviderError,
     MockWorkflowGenerationProvider,
 )
+from app.services.providers.deepseek_provider import SYSTEM_PROMPT
 
 
 def generate(prompt: str, **overrides: object):
@@ -292,6 +293,64 @@ def test_successful_deepseek_content_extraction_and_json_parsing() -> None:
     assert provider.last_diagnostics["content_json_valid"] is True
 
 
+def test_plain_text_response_returns_invalid_llm_output() -> None:
+    provider_response = {
+        "choices": [
+            {"message": {"content": "Generate a workflow to inspect the JSON artifact."}}
+        ],
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate_workflow_data("Return a workflow.")
+
+    assert exc_info.value.code == "INVALID_LLM_OUTPUT"
+
+
+def test_deepseek_system_prompt_requires_internal_automation_flow_schema() -> None:
+    assert "Do not wrap output inside automationFlow." in SYSTEM_PROMPT
+    assert "Do not wrap output inside workflow." in SYSTEM_PROMPT
+    assert "Do not use steps." in SYSTEM_PROMPT
+    assert (
+        "The output will be validated by Pydantic AutomationFlow.model_validate(). "
+        "Any other format will fail."
+    ) in SYSTEM_PROMPT
+    assert '"trigger_node_id": "string"' in SYSTEM_PROMPT
+    assert '"nodes": []' in SYSTEM_PROMPT
+    assert "trigger | send_message | ask_question | condition | api_call | assign_to_team | wait | end" in SYSTEM_PROMPT
+
+
+def test_markdown_json_response_is_cleaned_safely() -> None:
+    provider_response = {
+        "choices": [{"message": {"content": "```json\n{\"status\":\"ok\"}\n```"}}],
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate_workflow_data("Return status JSON.")
+
+    assert generated == {"status": "ok"}
+
+
+def test_valid_json_object_response_passes_parsing() -> None:
+    provider_response = {
+        "choices": [{"message": {"content": "  {\"status\":\"ok\"}  "}}],
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate_workflow_data("Return status JSON.")
+
+    assert generated == {"status": "ok"}
+
+
 def test_successful_deepseek_automation_flow_validation() -> None:
     flow = MockWorkflowGenerationProvider().generate(
         "Route buyer and seller leads to sales from a contact."
@@ -307,6 +366,63 @@ def test_successful_deepseek_automation_flow_validation() -> None:
 
     assert generated["name"] == "Lead routing"
     assert provider.last_diagnostics["automation_flow_valid"] is True
+
+
+def test_wrapped_automation_flow_response_fails_validation() -> None:
+    provider_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json_dump(
+                        {"automationFlow": minimal_valid_automation_flow()}
+                    )
+                }
+            }
+        ]
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Return a workflow.")
+
+    assert exc_info.value.code == "INVALID_GENERATED_FLOW"
+
+
+def test_valid_automation_flow_json_response_passes() -> None:
+    provider_response = {
+        "choices": [
+            {"message": {"content": json_dump(minimal_valid_automation_flow())}}
+        ]
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    generated = provider.generate("Return a workflow.")
+
+    assert generated["id"] == "test-flow"
+    assert generated["nodes"][0]["type"] == "trigger"
+
+
+def test_missing_nodes_response_fails_validation() -> None:
+    invalid_flow = minimal_valid_automation_flow()
+    invalid_flow.pop("nodes")
+    provider_response = {
+        "choices": [{"message": {"content": json_dump(invalid_flow)}}]
+    }
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        client_factory=FakeClientFactory(json_dump(provider_response)),
+    )
+
+    with pytest.raises(GenerationProviderError) as exc_info:
+        provider.generate("Return a workflow.")
+
+    assert exc_info.value.code == "INVALID_GENERATED_FLOW"
 
 
 def test_missing_choices_returns_invalid_llm_output() -> None:
@@ -533,6 +649,77 @@ def json_dump(value: object) -> str:
     import json
 
     return json.dumps(value)
+
+
+def minimal_valid_automation_flow() -> dict:
+    return {
+        "id": "test-flow",
+        "name": "Test flow",
+        "description": "A small valid flow.",
+        "version": 1,
+        "trigger_node_id": "start",
+        "nodes": [
+            {
+                "id": "start",
+                "type": "trigger",
+                "name": "Start",
+                "config": {"event": "customer_message"},
+                "transitions": [
+                    {
+                        "target_node_id": "ask-choice",
+                        "label": None,
+                        "condition": None,
+                        "is_fallback": False,
+                    }
+                ],
+            },
+            {
+                "id": "ask-choice",
+                "type": "ask_question",
+                "name": "Ask choice",
+                "config": {
+                    "question": "Morning or afternoon?",
+                    "variable_name": "choice",
+                    "expected_answers": ["morning", "afternoon"],
+                },
+                "transitions": [
+                    {
+                        "target_node_id": "route-choice",
+                        "label": None,
+                        "condition": None,
+                        "is_fallback": False,
+                    }
+                ],
+            },
+            {
+                "id": "route-choice",
+                "type": "condition",
+                "name": "Route choice",
+                "config": {"variable_name": "choice"},
+                "transitions": [
+                    {
+                        "target_node_id": "complete",
+                        "label": "Morning",
+                        "condition": "choice == 'morning'",
+                        "is_fallback": False,
+                    },
+                    {
+                        "target_node_id": "complete",
+                        "label": "Fallback",
+                        "condition": None,
+                        "is_fallback": True,
+                    },
+                ],
+            },
+            {
+                "id": "complete",
+                "type": "end",
+                "name": "Complete",
+                "config": {"outcome": "choice_recorded"},
+                "transitions": [],
+            },
+        ],
+    }
 
 
 class FakeResponse:

@@ -24,6 +24,13 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const flow = generation?.flow ?? null;
+  const generationFailure = generation?.status === "failed" ? generation : null;
+  const failureReasons = generationFailure
+    ? [
+        generationFailure.error_message,
+        ...(generationFailure.validation?.findings.map((finding) => finding.message) ?? [])
+      ].filter((reason): reason is string => Boolean(reason))
+    : [];
   const questionDefaults = useMemo(() => {
     const defaults: Record<string, string> = {};
     flow?.nodes
@@ -102,6 +109,40 @@ export default function App() {
           </div>
         )}
 
+        {generationFailure && (
+          <section className="rounded-2xl bg-[#FCEEEE] p-5 shadow-sm ring-1 ring-[#F0CACA]">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-[#F4D5D5] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#9A4B4B]">
+                {generationFailure.status}
+              </span>
+              <span className="text-sm font-medium text-[#6C7F8F]">
+                Provider: {generationFailure.provider}
+              </span>
+              {generationFailure.error_code && (
+                <span className="rounded-full bg-[#FAFCFE]/80 px-3 py-1 font-mono text-xs text-[#9A4B4B] ring-1 ring-[#F0CACA]">
+                  {generationFailure.error_code}
+                </span>
+              )}
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-[#3F5F7A]">
+              Workflow generation failed.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#587891]">
+              The AI response could not be converted into a valid workflow.
+            </p>
+            {failureReasons.length > 0 && (
+              <div className="mt-4 rounded-xl bg-[#FAFCFE]/75 p-4 text-sm text-[#587891] ring-1 ring-[#F0CACA]/70">
+                <p className="font-semibold text-[#3F5F7A]">Reason</p>
+                <ul className="mt-2 space-y-1">
+                  {failureReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
         {generation?.status === "clarification_required" && (
           <div className="rounded-2xl bg-[#E8F0F7] p-4 text-sm font-medium text-[#3F5F7A] shadow-sm ring-1 ring-[#D6E2EC]">
             {generation.clarification_question}
@@ -124,7 +165,7 @@ export default function App() {
           onRun={handleRunSimulation}
         />
 
-        <JsonViewer flow={flow} />
+        <JsonViewer flow={flow} generation={generation} />
       </main>
     </div>
   );

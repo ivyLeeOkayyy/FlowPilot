@@ -13,9 +13,50 @@ from app.services.providers.base import GenerationProviderError
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a workflow generation assistant for FlowPilot.
-Return only one valid JSON object matching the AutomationFlow schema.
-Do not use markdown fences.
-Do not add unsupported fields.
+
+CRITICAL OUTPUT RULES:
+- Return ONLY one JSON object.
+- Do not include explanations.
+- Do not include markdown.
+- Do not include code fences.
+- Do not include comments.
+- Do not include introductory text.
+- The entire response must start with { and end with }.
+- Any text outside the JSON object will cause validation failure.
+- Do not add unsupported fields.
+- Do not create your own workflow schema.
+- Do not use steps.
+- Do not wrap the JSON.
+- Do not wrap output inside automationFlow.
+- Do not wrap output inside workflow.
+- The output will be validated by Pydantic AutomationFlow.model_validate(). Any other format will fail.
+
+Required AutomationFlow top-level fields:
+{
+  "id": "string",
+  "name": "string",
+  "description": "string",
+  "version": 1,
+  "trigger_node_id": "string",
+  "nodes": []
+}
+
+FlowNode schema:
+{
+  "id": "string",
+  "type": "trigger | send_message | ask_question | condition | api_call | assign_to_team | wait | end",
+  "name": "string",
+  "config": {},
+  "transitions": []
+}
+
+Transition schema:
+{
+  "target_node_id": "string",
+  "label": "string or null",
+  "condition": "string or null",
+  "is_fallback": false
+}
 
 Supported node types:
 - trigger
@@ -27,28 +68,6 @@ Supported node types:
 - wait
 - end
 
-AutomationFlow schema:
-- id: non-empty string
-- name: non-empty string
-- description: optional string
-- version: positive integer
-- trigger_node_id: non-empty string referencing exactly one trigger node
-- nodes: non-empty array of FlowNode
-- metadata: object with source_prompt, generator, model_name, created_at, assumptions, warnings
-
-FlowNode schema:
-- id: non-empty string
-- type: one supported node type
-- name: non-empty human-readable string
-- config: typed config matching node type
-- transitions: array of transitions
-
-Transition schema:
-- target_node_id: non-empty string
-- label: optional string
-- condition: optional string
-- is_fallback: boolean
-
 Config schemas:
 - trigger: {"event": string}
 - send_message: {"message": string}
@@ -59,8 +78,8 @@ Config schemas:
 - wait: {"duration_seconds": positive integer}
 - end: {"outcome": string}
 
-Compact valid example:
-{"id":"example-flow","name":"Example flow","description":"Example","version":1,"trigger_node_id":"start","nodes":[{"id":"start","type":"trigger","name":"Start","config":{"event":"example_event"},"transitions":[{"target_node_id":"finish"}]},{"id":"finish","type":"end","name":"Finished","config":{"outcome":"complete"},"transitions":[]}],"metadata":{"source_prompt":"Example","generator":"deepseek","model_name":"deepseek-chat","assumptions":[],"warnings":[]}}
+Complete small valid example JSON:
+{"id":"example-flow","name":"Example flow","description":"Ask a customer one question and route the answer.","version":1,"trigger_node_id":"start","nodes":[{"id":"start","type":"trigger","name":"Start","config":{"event":"customer_message"},"transitions":[{"target_node_id":"ask-preference","label":null,"condition":null,"is_fallback":false}]},{"id":"ask-preference","type":"ask_question","name":"Ask preference","config":{"question":"Do you prefer morning or afternoon?","variable_name":"appointment_preference","expected_answers":["morning","afternoon"]},"transitions":[{"target_node_id":"route-preference","label":null,"condition":null,"is_fallback":false}]},{"id":"route-preference","type":"condition","name":"Route preference","config":{"variable_name":"appointment_preference"},"transitions":[{"target_node_id":"morning-end","label":"Morning","condition":"appointment_preference == 'morning'","is_fallback":false},{"target_node_id":"afternoon-end","label":"Afternoon","condition":"appointment_preference == 'afternoon'","is_fallback":false}]},{"id":"morning-end","type":"end","name":"Morning selected","config":{"outcome":"morning_preference_recorded"},"transitions":[]},{"id":"afternoon-end","type":"end","name":"Afternoon selected","config":{"outcome":"afternoon_preference_recorded"},"transitions":[]}]}
 
 Safety rules:
 - Do not generate executable code.
@@ -270,6 +289,7 @@ class DeepSeekProvider:
 
         self.last_diagnostics["provider_model"] = provider_response.get("model")
         content = self._extract_content(provider_response)
+        content = self._clean_content(content)
         try:
             parsed = json.loads(content)
             self.last_diagnostics["content_json_valid"] = True
@@ -279,6 +299,22 @@ class DeepSeekProvider:
         if not isinstance(parsed, dict):
             return self._invalid_output("content_json_object", TypeError("content JSON is not an object"))
         return parsed
+
+    def _clean_content(self, content: str) -> str:
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            if lines and lines[0].strip().startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+        if not (cleaned.startswith("{") and cleaned.endswith("}")):
+            return self._invalid_output(
+                "content_json_object",
+                ValueError("content does not start with { and end with }"),
+            )
+        return cleaned
 
     def _extract_content(self, provider_response: dict[str, Any]) -> str:
         choices = provider_response.get("choices")

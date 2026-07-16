@@ -617,7 +617,78 @@ The standalone verified request used `httpx.Client(..., trust_env=True)`, while 
 - `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 46 tests and 1 upstream FastAPI/Starlette deprecation warning.
 - `pytest` - attempted, but the executable is not available on PATH in this shell.
 - `.venv/bin/python -m pytest` - passed with 139 tests and 1 upstream FastAPI/Starlette deprecation warning.
+
+## 2026-07-16 - DeepSeek JSON-Only Prompt Hardening
+
+### Task
+
+Improve DeepSeek workflow-generation prompt adherence and defensive output handling after the model returned natural-language text instead of an `AutomationFlow` JSON object.
+
+### Codex Contribution
+
+- Strengthened the system prompt with explicit JSON-only rules.
+- Added required top-level `AutomationFlow` fields and supported node types.
+- Added a compact valid JSON example.
+- Added the instruction that any text outside the JSON object causes validation failure.
+- Added conservative output cleanup that strips whitespace and accidental markdown fences.
+- Kept invalid natural-language output rejected as `INVALID_LLM_OUTPUT`.
+- Added regression tests for plain text rejection, fenced JSON cleanup, and valid JSON parsing.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 49 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `pytest` - attempted, but the executable is not available on PATH in this shell.
+- `.venv/bin/python -m pytest` - passed with 142 tests and 1 upstream FastAPI/Starlette deprecation warning.
+
+## 2026-07-16 - DeepSeek AutomationFlow Schema Prompt Fix
+
+### Task
+
+Fix DeepSeek generation prompt and validation handling after the model returned a wrapped schema such as `{"automationFlow": {"steps": [...]}}` instead of the internal `AutomationFlow` schema.
+
+### Codex Contribution
+
+- Tightened the system prompt to explicitly forbid `automationFlow`, `workflow`, and `steps` wrappers.
+- Added the exact required top-level `AutomationFlow` fields.
+- Added exact node and transition shapes.
+- Included a complete small example containing trigger, ask-question, condition, and end nodes.
+- Added the instruction that output is validated directly by `AutomationFlow.model_validate()`.
+- Added tests proving wrapped output fails, valid `AutomationFlow` JSON passes, and missing `nodes` fails.
+- Did not add conversion logic, alternate workflow models, or wrapper unwrapping.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 52 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `pytest` - attempted, but the executable is not available on PATH in this shell.
+- `.venv/bin/python -m pytest` - passed with 145 tests and 1 upstream FastAPI/Starlette deprecation warning.
 - Browser responsive smoke check at 1280px, 1024px, 768px, and 390px - passed with expected column behavior and no horizontal overflow.
+
+## 2026-07-16 - LLM Generation Failure UI and Prompt Alignment
+
+### Task
+
+Trace why the frontend displayed `Generate a workflow to inspect the JSON artifact.` during failed DeepSeek generation and tighten the LLM path around the internal `AutomationFlow` schema.
+
+### Codex Contribution
+
+- Traced the message to the frontend raw JSON viewer empty-state placeholder, not the DeepSeek provider response.
+- Added an explicit failed-generation state that shows status, provider, error code, and available failure reasons.
+- Replaced the misleading JSON viewer placeholder with neutral empty/failure text.
+- Aligned the DeepSeek system prompt with the current backend `NodeType` enum, including `wait`.
+- Kept invalid wrapped or natural-language LLM output rejected instead of converting it into another schema.
+- Added a prompt regression test to prevent future schema drift.
+
+### Manual Review Checklist
+
+- [ ] Verify the frontend failed-generation state with a real invalid DeepSeek response.
+- [ ] Confirm the DeepSeek prompt performs acceptably with the configured production model.
+- [ ] Review whether provider validation errors should expose more detailed Pydantic field paths in future work.
+
+### Tests Executed
+
+- `.venv/bin/python -m pytest tests/unit/test_generation_service.py tests/integration/test_generate_flow_api.py` - passed with 53 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `.venv/bin/python -m pytest` - passed with 146 tests and 1 upstream FastAPI/Starlette deprecation warning.
+- `npm run build` from `frontend/` - passed.
 
 ## 2026-07-15 - Misty-Blue Frontend Visual Refactor
 
